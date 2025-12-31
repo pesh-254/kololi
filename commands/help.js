@@ -56,24 +56,9 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     let newOwner = getOwnerName();
     const menuSettings = getMenuSettings();
 
-    // Sports quotes (more quotes)
-    const sportsQuotes = [
-        "Champions keep playing until they get it right.",
-        "You miss 100% of the shots you don't take.",
-        "It's not whether you get knocked down, it's whether you get up.",
-        "The harder the battle, the sweeter the victory.",
-        "Pressure is a privilege.",
-        "Success is where preparation and opportunity meet.",
-        "Excellence is not a singular act, but a habit.",
-        "Winners never quit, and quitters never win.",
-        "The only way to prove you are a good sport is to lose.",
-        "Hard work beats talent when talent doesn't work hard.",
-        "Pain is temporary. Quitting lasts forever.",
-        "Don't practice until you get it right, practice until you can't get it wrong."
-    ];
-    const randomQuote = sportsQuotes[Math.floor(Math.random() * sportsQuotes.length)];
+    // REMOVED THE QUOTES SECTION - No random sports quotes
 
-    let menu = `${randomQuote}\n\n`;
+    let menu = ''; // Start with empty string instead of quotes
 
     // Header with thin frame
     menu += `┏▣ ◈ *DAVE-X* ◈\n`;

@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 function createFakeContact(message) {
+    const phone = message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0];
     return {
         key: {
             participants: "0@s.whatsapp.net",
@@ -10,8 +11,8 @@ function createFakeContact(message) {
         },
         message: {
             contactMessage: {
-                displayName: "Davex Export",
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Export;;;\nFN:Davex Contact Export\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Export Bot\nEND:VCARD`
+                displayName: "DAVE-X",
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Dave-X;;;\nFN:DAVE-X\nTEL;waid=${phone}:${phone}\nEND:VCARD`
             }
         },
         participant: "0@s.whatsapp.net"
@@ -19,84 +20,77 @@ function createFakeContact(message) {
 }
 
 async function vcfCommand(sock, chatId, message) {
-    const fakeContact = createFakeContact(message);
-    
+    const fkontak = createFakeContact(message);
+
     try {
+        // Restrict to groups only
         if (!chatId.endsWith('@g.us')) {
             await sock.sendMessage(chatId, { 
-                text: "Group context required" 
-            }, { quoted: fakeContact });
+                text: "This command only works in groups." 
+            }, { quoted: fkontak });
             return;
         }
 
+        // Get group metadata
         const groupMetadata = await sock.groupMetadata(chatId);
         const participants = groupMetadata.participants || [];
-        
+
+        // Validate group size
         if (participants.length < 2) {
             await sock.sendMessage(chatId, { 
-                text: "Minimum two participants needed" 
-            }, { quoted: fakeContact });
+                text: "Group must have at least 2 members." 
+            }, { quoted: fkontak });
             return;
         }
 
-        await sock.sendMessage(chatId, { 
-            text: `Processing contact data for ${groupMetadata.subject}` 
-        }, { quoted: fakeContact });
-
+        // Generate VCF content
         let vcfContent = '';
         participants.forEach(participant => {
             const phoneNumber = participant.id.split('@')[0];
             const displayName = participant.notify || `User_${phoneNumber}`;
-            
+
             vcfContent += `BEGIN:VCARD\n` +
                           `VERSION:3.0\n` +
                           `FN:${displayName}\n` +
                           `TEL;TYPE=CELL:+${phoneNumber}\n` +
-                          `NOTE:From ${groupMetadata.subject}\n` +
-                          `END:VCARD\n\n`;
+                          `END:VCARD\n`;
         });
 
+        // Create temp file
         const sanitizedGroupName = groupMetadata.subject.replace(/[^\w]/g, '_');
         const tempDir = path.join(__dirname, '../temp');
-        
+
         if (!fs.existsSync(tempDir)) {
             fs.mkdirSync(tempDir, { recursive: true });
         }
-        
-        const vcfPath = path.join(tempDir, `${sanitizedGroupName}_${Date.now()}.vcf`);
+
+        const vcfPath = path.join(tempDir, `${sanitizedGroupName}.vcf`);
         fs.writeFileSync(vcfPath, vcfContent);
 
-        setTimeout(async () => {
-            try {
-                await sock.sendMessage(chatId, {
-                    document: fs.readFileSync(vcfPath),
-                    mimetype: 'text/vcard',
-                    fileName: `${sanitizedGroupName}_contacts.vcf`,
-                    caption: `Group contact export\nGroup: ${groupMetadata.subject}\nParticipant count: ${participants.length}`
-                }, { quoted: fakeContact });
+        // Send VCF file
+        await sock.sendMessage(chatId, {
+            document: fs.readFileSync(vcfPath),
+            mimetype: 'text/vcard',
+            fileName: `${sanitizedGroupName}.vcf`,
+            caption: `Group: ${groupMetadata.subject}\nMembers: ${participants.length}`
+        }, { quoted: fkontak });
 
-                setTimeout(() => {
-                    try {
-                        if (fs.existsSync(vcfPath)) {
-                            fs.unlinkSync(vcfPath);
-                        }
-                    } catch (cleanupError) {
-                        console.error('File cleanup error:', cleanupError);
-                    }
-                }, 5000);
-            } catch (sendError) {
-                console.error('VCF transmission error:', sendError);
-                await sock.sendMessage(chatId, { 
-                    text: "Contact export transmission failure" 
-                }, { quoted: fakeContact });
+        // Cleanup
+        setTimeout(() => {
+            try {
+                if (fs.existsSync(vcfPath)) {
+                    fs.unlinkSync(vcfPath);
+                }
+            } catch (cleanupError) {
+                // Ignore cleanup errors
             }
-        }, 4000);
+        }, 5000);
 
     } catch (error) {
-        console.error('VCF generation error:', error);
+        console.error('VCF Error:', error.message);
         await sock.sendMessage(chatId, { 
-            text: "Contact export creation unsuccessful" 
-        }, { quoted: fakeContact });
+            text: "Failed to generate contacts." 
+        }, { quoted: fkontak });
     }
 }
 

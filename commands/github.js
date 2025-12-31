@@ -24,7 +24,7 @@ async function githubCommand(sock, chatId, message) {
     try {
         const fakeContact = createFakeContact(message);
         
-        await sock.sendMessage(chatId, { react: { text: '🎄', key: message.key } });
+        await sock.sendMessage(chatId, { react: { text: '🌟', key: message.key } });
         
         const pushname = message.pushName || "User";
         
@@ -32,13 +32,13 @@ async function githubCommand(sock, chatId, message) {
             text: "Fetching DaveX repository...\n\n'Never give up' - John Cena" 
         }, { quoted: fakeContact });
         
-        const res = await axios.get('https://api.github.com/repos/gifteddevsmd/DAVE-MD2', {
-            headers: { 'User-Agent': 'DAVE-MD-Bot' }
+        const res = await axios.get('https://api.github.com/repos/Davex-254/DAVE-X', {
+            headers: { 'User-Agent': 'DAVE-X' }
         });
         
         const repo = res.data;
         
-        let txt = `DAVE-MD Repository\n\n`;
+        let txt = `DAVE-X Repository\n\n`;
         txt += `Name: ${repo.name}\n`;
         txt += `Owner: ${repo.owner.login}\n`;
         txt += `Private: ${repo.private ? 'Yes' : 'No'}\n`;
@@ -60,7 +60,7 @@ async function githubCommand(sock, chatId, message) {
             caption: txt
         }, { quoted: fakeContact });
         
-        const zipUrl = `https://github.com/gifteddevsmd/DAVE-MD2/archive/refs/heads/main.zip`;
+        const zipUrl = `https://github.com/Davex-254/DAVE-X/archive/refs/heads/main.zip`;
         const zipPath = path.join(__dirname, "../tmp/repo.zip");
         fs.mkdirSync(path.dirname(zipPath), { recursive: true });
         

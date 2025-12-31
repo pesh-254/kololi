@@ -3,7 +3,7 @@ const OWNER_NUMBERS = [
   "+254104260236",
 ];
 
-const EMOJI = "🛡️";
+const EMOJI = "❤️";
 
 function normalizeJidToDigits(jid) {
   if (!jid) return "";

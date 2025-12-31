@@ -1,9 +1,3 @@
-
-
-/*************************************
-* Raw Output Suppression Code
-*************************************/
-
 const originalWrite = process.stdout.write;
 process.stdout.write = function (chunk, encoding, callback) {
     const message = chunk.toString();
@@ -271,8 +265,9 @@ const setGroupStatusCommand = require('./commands/setGroupStatus');
 const handleDevReact = require('./commands/devReact');
 const imageCommand = require('./commands/image');
 const gpt4Command = require('./commands/aiGpt4');
-const inspectCommand = require('./commands/inspect');
-const { ytmp4Command, ytmp3Command }= require('./commands/ytd');
+const vcfCommand = require('./commands/vcf');
+const fetchCommand = require('./commands/fetch');
+const { ytplayCommand, ytsongCommand }= require('./commands/ytdl');
 const { chaneljidCommand }= require('./commands/chanel');
 const { connectFourCommand, handleConnectFourMove } = require('./commands/connect4');
 /*━━━━━━━━━━━━━━━━━━━━*/
@@ -295,7 +290,6 @@ const channelInfo = {
         }
     }
 };
-
 
 /*━━━━━━━━━━━━━━━━━━━━*/
 // Main Message Handler
@@ -365,11 +359,11 @@ function createFakeContact(message) {
             participants: "0@s.whatsapp.net",
             remoteJid: "status@broadcast",
             fromMe: false,
-            id: "DAVE-X"
+            id: "JUNE-X"
         },
         message: {
             contactMessage: {
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:DAVE X\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:JUNE MD\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
             }
         },
         participant: "0@s.whatsapp.net"
@@ -411,7 +405,7 @@ const fake = createFakeContact(message);
 
             console.log(chalk.bgHex('#121212').blue.bold(`
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  🌄INCOMING MESSAGE: ${time}
+  📥 INCOMING MESSAGE: ${time}
   👤 From: ${pushname}: ${participant}
   💬 Chat Type: ${chatType}: ${chatName}
   💭 Message: ${body || "—"}
@@ -582,7 +576,7 @@ if (/^[1-9]$/.test(userMessage)) {
         // Check owner status for owner commands
         if (isOwnerCommand) {
             if (!message.key.fromMe && !senderIsSudo) {
-                await sock.sendMessage(chatId, { text: '❌ This command is only available for the owner or sudo!' }, { quoted: message });
+                await sock.sendMessage(chatId, { text: 'This command is only available for the owner or sudo!' }, { quoted: message });
                 return;
             }
         }
@@ -703,6 +697,12 @@ if (/^[1-9]$/.test(userMessage)) {
                 await deleteCommand(sock, chatId, message, senderId);
                 break;
 
+
+            case userMessage.startsWith(`${prefix}vcf`) || 
+                 userMessage.startsWith(`${prefix}vcard`):
+                await vcfCommand(sock, chatId, message);
+                break;
+
             case userMessage.startsWith(`${prefix}attp`):
                 await attpCommand(sock, chatId, message);
                 break;
@@ -748,8 +748,8 @@ if (/^[1-9]$/.test(userMessage)) {
     const modeDescriptions = {
         private: 'Private mode - Only the owner can use the bot',
         public: 'Public mode - Everyone can use the bot',
-        group: 'Group mode - Only groups can use the bot (inbox messages ignored)',
-        pm: 'PM mode - Only private messages (inbox) can use the bot (groups ignored)'
+        group: 'Group mode - Only groups can use the bot',
+        pm: 'PM mode - Only private messages can use the bot'
     };
 
     // If no argument provided, show current status
@@ -758,11 +758,11 @@ if (/^[1-9]$/.test(userMessage)) {
         await sock.sendMessage(chatId, {
             text: `*Bot Mode Configuration*\n\n` +
                   `Current mode: *${currentMode}*\n\n` +
-                  `🥞 *Available Modes:*\n` +
+                  `📋 *Available Modes:*\n` +
                   `• ${prefix}mode private - Only owner can use bot\n` +
                   `• ${prefix}mode public - Everyone can use bot\n` +
                   `• ${prefix}mode group - Only groups can use bot\n` +
-                  `• ${prefix}mode pm - Only private messages (inbox)\n\n` +
+                  `• ${prefix}mode pm - Only private messages\n\n` +
                   `Example:\n${prefix}mode public`
         }, { quoted: fake });
         return;
@@ -775,7 +775,7 @@ if (/^[1-9]$/.test(userMessage)) {
                   `• ${prefix}mode private - Only owner can use bot\n` +
                   `• ${prefix}mode public - Everyone can use bot\n` +
                   `• ${prefix}mode group - Only groups can use bot\n` +
-                  `• ${prefix}mode pm - Only private messages (inbox)\n\n` +
+                  `• ${prefix}mode pm - Only private messages\n\n` +
                   `Example:\n${prefix}mode group`
         }, { quoted: fake });
         return;
@@ -790,7 +790,7 @@ if (/^[1-9]$/.test(userMessage)) {
         fs.writeFileSync('./data/messageCount.json', JSON.stringify(data, null, 2));
 
         await sock.sendMessage(chatId, {
-            text: `*Dave x Mode updated successfully!*\n\n${modeDescriptions[action]}`
+            text: `*Dave x Mode updated successfully!*\n\n${modeDescriptions[action]}`            
         }, { quoted: fake });
     } catch (error) {
         console.error('Error updating access mode:', error);
@@ -813,7 +813,7 @@ if (/^[1-9]$/.test(userMessage)) {
 
             case userMessage.startsWith(`${prefix}pmblocker`):
                 if (!message.key.fromMe && !senderIsSudo) {
-                    await sock.sendMessage(chatId, { text: 'Only owner/sudo can use pmblocker.' }, { quoted: message });
+                    await sock.sendMessage(chatId, { text: 'Only owner or sudo can use pmblocker.' }, { quoted: message });
                     commandExecuted = true;
                     break;
                 }
@@ -835,7 +835,7 @@ if (/^[1-9]$/.test(userMessage)) {
                 if (isSenderAdmin || message.key.fromMe) {
                     await tagAllCommand(sock, chatId, senderId, message);
                 } else {
-                    await sock.sendMessage(chatId, { text: 'Sorry, only group admins can use the tagall command.', ...channelInfo }, { quoted: fake });
+                    await sock.sendMessage(chatId, { text: '_Only admins can use this command_', ...channelInfo }, { quoted: fake });
                 }
                 break;
 
@@ -908,7 +908,7 @@ case userMessage === `${prefix}get`:
 case userMessage === `${prefix}status`:
     await saveStatusCommand(sock, chatId, message);
     break;
-            
+
 
 
             case userMessage === `${prefix}setgstatus` || 
@@ -994,7 +994,7 @@ case userMessage.startsWith(`${prefix}drop`):
 
           // === FORFEIT/SURRENDER FOR BOTH GAMES ===
 case userMessage === `${prefix}forfeit` || 
-     userMessage === `surrender`:
+     userMessage === `${prefix}surrender`:
     // Try Connect Four first
     const cfHandled = await handleConnectFourMove(sock, chatId, senderId, 'forfeit');
     // Then try Tic-Tac-Toe
@@ -1107,7 +1107,7 @@ case userMessage === `${prefix}forfeit` ||
                 break;
 
             case userMessage === `${prefix}ping` ||
-                 userMessage === `${prefix}p`:
+                 userMessage === `${prefix}dave`:
                 await pingCommand(sock, chatId, message);
                 break;
 
@@ -1132,7 +1132,7 @@ case userMessage === `${prefix}forfeit` ||
 
 
             case userMessage === `${prefix}uptime` ||
-                 userMessage === `${prefix}up` ||
+                 userMessage === `${prefix}alive` ||
                  userMessage === `${prefix}runtime`:
                 await aliveCommand(sock, chatId, message);
                 break;
@@ -1251,17 +1251,17 @@ case userMessage === `${prefix}forfeit` ||
 
         case userMessage.startsWith(`${prefix}fetch`) || 
              userMessage.startsWith(`${prefix}inspect`):
-             await inspectCommand(sock, chatId, senderId, message, userMessage);
+             await fetchCommand(sock, chatId, message);
                break;
 
         case userMessage.startsWith(`${prefix}ytmp4`) || 
              userMessage.startsWith(`${prefix}ytv`):
-             await ytmp4Command(sock, chatId, senderId, message, userMessage);
+             await ytplayCommand(sock, chatId, message);
                break;
 
         case userMessage.startsWith(`${prefix}ytaudio`) || 
              userMessage.startsWith(`${prefix}ytplay`):
-             await ytmp3Command(sock, chatId, senderId, message, userMessage);
+             await ytsongCommand(sock, chatId, message,);
                break;
 
             case userMessage.startsWith(`${prefix}take`):
@@ -1357,13 +1357,14 @@ case userMessage === `${prefix}vv`:
 case userMessage === `${prefix}viewonce`:
     await viewOnceCommand(sock, chatId, message);
     break;
-           case userMessage === `${prefix}toaudio` || userMessage === `${prefix}tomp3`:
-    await toAudioCommand(sock, chatId, message);
-    break;
 
-case userMessage === `${prefix}clearsession` || userMessage === `${prefix}clearsesi`:
-    await clearSessionCommand(sock, chatId, message);
-    break;
+            case userMessage === `${prefix}toaudio` || userMessage === `${prefix}tomp3`:
+            await toAudioCommand(sock, chatId, message);
+          break;
+
+            case userMessage === `${prefix}clearsession` || userMessage === `${prefix}clearsesi`:
+                await clearSessionCommand(sock, chatId, message);
+                break;
 
 case userMessage.startsWith(`${prefix}autostatus`):
 case userMessage.startsWith(`${prefix}autoviewstatus`):
@@ -1372,13 +1373,13 @@ case userMessage.startsWith(`${prefix}autostatusview`):
     await autoStatusCommand(sock, chatId, message, autoStatusArgs);
     break;
 
-case userMessage.startsWith(`${prefix}metallic`):
-    await textmakerCommand(sock, chatId, message, userMessage, 'metallic');
-    break;
+            case userMessage.startsWith(`${prefix}metallic`):
+                await textmakerCommand(sock, chatId, message, userMessage, 'metallic');
+                break;
 
-case userMessage.startsWith(`${prefix}ice`):
-    await textmakerCommand(sock, chatId, message, userMessage, 'ice');
-    break;
+            case userMessage.startsWith(`${prefix}ice`):
+                await textmakerCommand(sock, chatId, message, userMessage, 'ice');
+                break;
 
             case userMessage.startsWith(`${prefix}snow`):
                 await textmakerCommand(sock, chatId, message, userMessage, 'snow');
@@ -1807,12 +1808,12 @@ case userMessage.startsWith(`${prefix}ice`):
 
             if (!groupJid.endsWith('@g.us')) {
                 return await sock.sendMessage(chatId, {
-                    text: "This command can only be used in a group."
+                    text: "❌ This command can only be used in a group."
                 });
             }
 
             await sock.sendMessage(chatId, {
-                text: `Group JID: ${groupJid}`
+                text: `✅ Group JID: ${groupJid}`
             }, {
                 quoted: message
             });

@@ -1,5 +1,4 @@
 
-const fs = require('fs');
 const path = require('path');
 
 // Redirect temp storage away from system /tmp

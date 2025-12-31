@@ -16,7 +16,7 @@ const settings = {
   storeWriteInterval: 10000,
   description: "This is a bot for managing group commands and automating tasks.",
   version: "2.6.4",
-  updateZipUrl: "https://github.com/private-254/dem/archive/refs/heads/main.zip",
+  updateZipUrl: "https://github.com/pesh-254/kololi/archive/refs/heads/main.zip",
 };
 
 module.exports = settings;

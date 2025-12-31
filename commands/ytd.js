@@ -1,63 +1,76 @@
 const yts = require('yt-search');
 
+function createFakeContact(message) {
+    const phone = message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0];
+    return {
+        key: {
+            participants: "0@s.whatsapp.net",
+            remoteJid: "0@s.whatsapp.net",
+            fromMe: false
+        },
+        message: {
+            contactMessage: {
+                displayName: "DAVE-X",
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Dave-X;;;\nFN:DAVE-X\nTEL;waid=${phone}:${phone}\nEND:VCARD`
+            }
+        },
+        participant: "0@s.whatsapp.net"
+    };
+}
+
 async function ytsCommand(sock, chatId, senderId, message, userMessage) {
+    const fkontak = createFakeContact(message);
+    
     try {
         const args = userMessage.split(' ').slice(1);
         const query = args.join(' ');
 
         if (!query) {
             return await sock.sendMessage(chatId, {
-                text: `🔍 *YouTube Search Command*\n\nUsage:\n.yts <search_query>\n\nExample:\n.yts Godzilla\n.yts latest songs\n.yts tutorial for JUNE-X`
-            });
+                text: "Usage: .yts <search>"
+            }, { quoted: fkontak });
         }
 
         await sock.sendMessage(chatId, {
-            text: `🌍 Searching YouTube Results for: "${query}"...`
-        },{ quoted: message });
+            text: `Searching for: ${query}...`
+        }, { quoted: fkontak });
 
         let searchResults;
         try {
             searchResults = await yts(query);
         } catch (searchError) {
-            console.error('YouTube search error:', searchError);
+            console.error('Search error:', searchError.message);
             return await sock.sendMessage(chatId, {
-                text: '❌ Error searching YouTube. Please try again later.'
-            });
+                text: 'Search failed.'
+            }, { quoted: fkontak });
         }
 
-        const videos = (searchResults && searchResults.videos) ? searchResults.videos.slice(0, 15) : [];
+        const videos = (searchResults && searchResults.videos) ? searchResults.videos.slice(0, 10) : [];
 
         if (videos.length === 0) {
             return await sock.sendMessage(chatId, {
-                text: `❌ No results found for "${query}"\n\nTry different keywords.`
-            });
+                text: `No results for "${query}"`
+            }, { quoted: fkontak });
         }
 
-        let resultMessage = `📑 *YOUTUBE SEARCH RESULTS:* "${query}"\n\n`;
+        let resultMessage = `Results for: ${query}\n\n`;
 
         videos.forEach((video, index) => {
-            const duration = video.timestamp || 'N/A';
-            const views = video.views ? video.views.toLocaleString() : 'N/A';
-            const uploadDate = video.ago || 'N/A';
+            const duration = video.timestamp || '-';
+            const views = video.views ? video.views.toLocaleString() : '-';
 
-            resultMessage += `*${index + 1}. ${video.title}*\n`;
-            resultMessage += `🌐 *URL:* ${video.url}\n`;
-            resultMessage += `⏱️ *Duration:* ${duration}\n`;
-            resultMessage += `🪟 *Views:* ${views}\n`;
-            resultMessage += `⤴️ *Uploaded:* ${uploadDate}\n`;
-            resultMessage += `🧾 *Channel:* ${video.author?.name || 'N/A'}\n\n`;
+            resultMessage += `${index + 1}. ${video.title}\n`;
+            resultMessage += `URL: ${video.url}\n`;
+            resultMessage += `Duration: ${duration} | Views: ${views}\n\n`;
         });
 
-        resultMessage += `🌍 *Tip:* Use play <url> to download audio\n`;
-        resultMessage += `🗺️ Use video <url> to download video`;
-
-        await sock.sendMessage(chatId, { text: resultMessage },{ quoted: message});
+        await sock.sendMessage(chatId, { text: resultMessage }, { quoted: fkontak });
 
     } catch (error) {
-        console.error('YouTube search command error:', error);
+        console.error('YTS command error:', error.message);
         await sock.sendMessage(chatId, {
-            text: '❌ An error occurred while searching YouTube. Please try again.'
-        });
+            text: 'Search failed.'
+        }, { quoted: fkontak });
     }
 }
 

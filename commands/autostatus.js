@@ -26,9 +26,31 @@ function getRandomEmoji() {
     return emojis[Math.floor(Math.random() * emojis.length)];
 }
 
+const sportsQuotes = [
+    "The goal is not to be perfect, but to be better than yesterday.",
+    "🥊 Champions aren't made in the gyms. Champions are made from something they have deep inside them.",
+    "🏆 Success is no accident. It is hard work, perseverance, learning, studying, sacrifice and most of all, love of what you are doing.",
+    "💪 The pain you feel today will be the strength you feel tomorrow.",
+    "🤼 The only way to prove you are a good sport is to lose.",
+    "🥇 Don't wish it were easier, wish you were better.",
+    "🔥 The only person you should try to be better than is the person you were yesterday.",
+    "👑 It's not whether you get knocked down, it's whether you get up.",
+    "⚡ The difference between the impossible and the possible lies in a person's determination.",
+    "🎖️ You miss 100% of the shots you don't take.",
+    "🤺 The harder the battle, the sweeter the victory.",
+    "💥 If you can believe it, the mind can achieve it.",
+    "🥋 The greatest glory in living lies not in never falling, but in rising every time we fall.",
+    "🏅 I've failed over and over again in my life. And that is why I succeed.",
+    "🎽 The only limit to our realization of tomorrow will be our doubts of today."
+];
+
+function getRandomQuote() {
+    return sportsQuotes[Math.floor(Math.random() * sportsQuotes.length)];
+}
+
 if (!fs.existsSync(configPath)) {
     fs.writeFileSync(configPath, JSON.stringify({ 
-        enabled: false, 
+        enabled: true,
         reactOn: false,
         reactionEmoji: '🖤',
         randomReactions: true 
@@ -39,8 +61,8 @@ function readConfig() {
     try {
         if (!fs.existsSync(configPath)) {
             const defaultConfig = { 
-                enabled: false, 
-                reactOn: false, 
+                enabled: true,
+                reactOn: false,
                 reactionEmoji: '🖤',
                 randomReactions: true 
             };
@@ -51,8 +73,8 @@ function readConfig() {
     } catch (error) {
         console.error('Config error:', error);
         return { 
-            enabled: false, 
-            reactOn: false, 
+            enabled: true,
+            reactOn: false,
             reactionEmoji: '🖤',
             randomReactions: true 
         };
@@ -90,7 +112,7 @@ async function autoStatusCommand(sock, chatId, msg, args) {
                         `Emoji: ${config.reactionEmoji}\n` +
                         `Random: ${config.randomReactions ? 'ON' : 'OFF'}\n\n` +
                         `Commands: on, off, react on/off, emoji <emoji>, random on/off, reset\n\n` +
-                        `🎄 Merry Christmas`;
+                        `${getRandomQuote()}`;
             
             await sock.sendMessage(chatId, { text }, { quoted: fakeContact });
             return;
@@ -101,18 +123,18 @@ async function autoStatusCommand(sock, chatId, msg, args) {
         if (command === 'on') {
             config.enabled = true;
             if (writeConfig(config)) {
-                await sock.sendMessage(chatId, { text: 'Auto status ON' }, { quoted: fakeContact });
+                await sock.sendMessage(chatId, { text: `Auto status successfully enabled\n\n${getRandomQuote()}` }, { quoted: fakeContact });
             }
         } 
         else if (command === 'off') {
             config.enabled = false;
             if (writeConfig(config)) {
-                await sock.sendMessage(chatId, { text: 'Auto status OFF' }, { quoted: fakeContact });
+                await sock.sendMessage(chatId, { text: `Auto status successfully disabled\n\n${getRandomQuote()}` }, { quoted: fakeContact });
             }
         } 
         else if (command === 'react') {
             if (!args[1]) {
-                await sock.sendMessage(chatId, { text: 'Use: react on/off' }, { quoted: fakeContact });
+                await sock.sendMessage(chatId, { text: `Use: react on/off\n\n${getRandomQuote()}` }, { quoted: fakeContact });
                 return;
             }
             
@@ -121,32 +143,32 @@ async function autoStatusCommand(sock, chatId, msg, args) {
                 config.reactOn = true;
                 if (writeConfig(config)) {
                     const reactionType = config.randomReactions ? 'random' : config.reactionEmoji;
-                    await sock.sendMessage(chatId, { text: `Reactions ON: ${reactionType}` }, { quoted: fakeContact });
+                    await sock.sendMessage(chatId, { text: `Successfully enabled autoreactstatus: ${reactionType}\n\n${getRandomQuote()}` }, { quoted: fakeContact });
                 }
             } else if (reactCommand === 'off') {
                 config.reactOn = false;
                 if (writeConfig(config)) {
-                    await sock.sendMessage(chatId, { text: 'Reactions OFF' }, { quoted: fakeContact });
+                    await sock.sendMessage(chatId, { text: `Successfully disabled autoreactstatus\n\n${getRandomQuote()}` }, { quoted: fakeContact });
                 }
             } else {
-                await sock.sendMessage(chatId, { text: 'Invalid: react on/off' }, { quoted: fakeContact });
+                await sock.sendMessage(chatId, { text: `Invalid: react on/off\n\n${getRandomQuote()}` }, { quoted: fakeContact });
             }
         }
         else if (command === 'emoji') {
             if (!args[1]) {
-                await sock.sendMessage(chatId, { text: 'Emoji required' }, { quoted: fakeContact });
+                await sock.sendMessage(chatId, { text: `Emoji required\n\n${getRandomQuote()}` }, { quoted: fakeContact });
                 return;
             }
             
             const newEmoji = args[1].trim();
             config.reactionEmoji = newEmoji;
             if (writeConfig(config)) {
-                await sock.sendMessage(chatId, { text: `Emoji: ${newEmoji}` }, { quoted: fakeContact });
+                await sock.sendMessage(chatId, { text: `Successfully set emoji: ${newEmoji}\n\n${getRandomQuote()}` }, { quoted: fakeContact });
             }
         }
         else if (command === 'random') {
             if (!args[1]) {
-                await sock.sendMessage(chatId, { text: 'Use: random on/off' }, { quoted: fakeContact });
+                await sock.sendMessage(chatId, { text: `Use: random on/off\n\n${getRandomQuote()}` }, { quoted: fakeContact });
                 return;
             }
             
@@ -154,36 +176,36 @@ async function autoStatusCommand(sock, chatId, msg, args) {
             if (randomCommand === 'on') {
                 config.randomReactions = true;
                 if (writeConfig(config)) {
-                    await sock.sendMessage(chatId, { text: 'Random ON' }, { quoted: fakeContact });
+                    await sock.sendMessage(chatId, { text: `Successfully enabled random reactions\n\n${getRandomQuote()}` }, { quoted: fakeContact });
                 }
             } else if (randomCommand === 'off') {
                 config.randomReactions = false;
                 if (writeConfig(config)) {
-                    await sock.sendMessage(chatId, { text: `Random OFF (using: ${config.reactionEmoji})` }, { quoted: fakeContact });
+                    await sock.sendMessage(chatId, { text: `Successfully disabled random (using: ${config.reactionEmoji})\n\n${getRandomQuote()}` }, { quoted: fakeContact });
                 }
             } else {
-                await sock.sendMessage(chatId, { text: 'Invalid: random on/off' }, { quoted: fakeContact });
+                await sock.sendMessage(chatId, { text: `Invalid: random on/off\n\n${getRandomQuote()}` }, { quoted: fakeContact });
             }
         }
         else if (command === 'reset') {
             const defaultConfig = { 
-                enabled: false, 
-                reactOn: false, 
+                enabled: true,
+                reactOn: false,
                 reactionEmoji: '🖤',
                 randomReactions: true 
             };
             if (writeConfig(defaultConfig)) {
-                await sock.sendMessage(chatId, { text: 'Settings reset' }, { quoted: fakeContact });
+                await sock.sendMessage(chatId, { text: `Successfully reset settings to default\n\n${getRandomQuote()}` }, { quoted: fakeContact });
             }
         }
         else {
-            await sock.sendMessage(chatId, { text: 'Invalid command' }, { quoted: fakeContact });
+            await sock.sendMessage(chatId, { text: `Invalid command\n\n${getRandomQuote()}` }, { quoted: fakeContact });
         }
 
     } catch (error) {
         console.error('AutoStatus error:', error);
         const fakeContact = createFakeContact(msg);
-        await sock.sendMessage(chatId, { text: 'Error' }, { quoted: fakeContact });
+        await sock.sendMessage(chatId, { text: `Error\n\n${getRandomQuote()}` }, { quoted: fakeContact });
     }
 }
 

@@ -55,7 +55,7 @@ async function facebookCommand(sock, chatId, message) {
             react: { text: '⬇️', key: message.key }
         });
 
-        // Use new API
+        // Use API
         const apiUrl = `https://apiskeith.vercel.app/download/fbdown?url=${encodeURIComponent(url)}`;
         let apiResult;
 
@@ -68,37 +68,43 @@ async function facebookCommand(sock, chatId, message) {
             });
 
             apiResult = response.data;
-            console.log('API response:', apiResult);
+            console.log('API response status:', apiResult?.status);
+            console.log('API result structure:', apiResult?.result ? 'Has result' : 'No result');
         } catch (error) {
             console.error('API call failed:', error.message);
             throw new Error('Download service unavailable');
+        }
+
+        // Check if API returned valid data
+        if (!apiResult?.status || !apiResult?.result) {
+            throw new Error('Invalid API response');
         }
 
         // Extract video URL from API response
         let fbvid = null;
         let title = "Facebook Video";
 
-        if (apiResult && apiResult.result) {
-            // Check for HD quality first
-            if (apiResult.result.hd) {
-                fbvid = apiResult.result.hd;
-            } else if (apiResult.result.sd) {
-                fbvid = apiResult.result.sd;
-            } else if (apiResult.result.url) {
-                fbvid = apiResult.result.url;
-            }
-            
-            // Extract title if available
-            if (apiResult.result.title) {
-                title = apiResult.result.title;
+        // Get title
+        if (apiResult.result.title && apiResult.result.title !== "Facebook") {
+            title = apiResult.result.title;
+        }
+
+        // Get video URL - prefer HD, fallback to SD
+        if (apiResult.result.media) {
+            if (apiResult.result.media.hd) {
+                fbvid = apiResult.result.media.hd;
+                console.log('Using HD quality');
+            } else if (apiResult.result.media.sd) {
+                fbvid = apiResult.result.media.sd;
+                console.log('Using SD quality');
             }
         }
 
         if (!fbvid) {
-            throw new Error('Video not found or inaccessible');
+            throw new Error('Video not found in API response');
         }
 
-        console.log('Video URL found:', fbvid);
+        console.log('Video URL found:', fbvid.substring(0, 100) + '...');
 
         // Try URL method first
         try {
@@ -110,7 +116,7 @@ async function facebookCommand(sock, chatId, message) {
                 caption: caption
             }, { quoted: fake });
 
-            console.log('Video sent successfully');
+            console.log('Video sent successfully via URL');
             return;
 
         } catch (urlError) {
@@ -124,12 +130,18 @@ async function facebookCommand(sock, chatId, message) {
 
             tempFile = path.join(tmpDir, `fb_${Date.now()}.mp4`);
 
-            // Download the video
+            // Download the video with proper headers
             const videoResponse = await axios({
                 method: 'GET',
                 url: fbvid,
                 responseType: 'stream',
-                timeout: 30000
+                timeout: 30000,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'video/mp4,video/*;q=0.9,*/*;q=0.8',
+                    'Referer': 'https://www.facebook.com/',
+                    'Accept-Language': 'en-US,en;q=0.9'
+                }
             });
 
             const writer = fs.createWriteStream(tempFile);
@@ -140,6 +152,14 @@ async function facebookCommand(sock, chatId, message) {
                 writer.on('error', reject);
                 setTimeout(() => reject(new Error('Download timeout')), 30000);
             });
+
+            // Verify file
+            const stats = fs.statSync(tempFile);
+            if (stats.size === 0) {
+                throw new Error('Downloaded file is empty');
+            }
+
+            console.log(`Downloaded ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
 
             // Send downloaded video
             const caption = `${title}\n\nBy DAVE-X Bot`;
@@ -166,6 +186,8 @@ async function facebookCommand(sock, chatId, message) {
             errorMessage = "Video not found or inaccessible.";
         } else if (error.message.includes('Download service')) {
             errorMessage = "Download service unavailable.";
+        } else if (error.message.includes('Invalid API response')) {
+            errorMessage = "API returned invalid data.";
         } else if (error.message.includes('timeout')) {
             errorMessage = "Request timeout.";
         } else {
@@ -182,6 +204,7 @@ async function facebookCommand(sock, chatId, message) {
         if (tempFile && fs.existsSync(tempFile)) {
             try {
                 fs.unlinkSync(tempFile);
+                console.log('Temp file cleaned up');
             } catch (cleanupError) {
                 // Ignore cleanup errors
             }

@@ -1,4 +1,4 @@
-const axios = require('axios');
+const fetch = require('node-fetch');
 
 function createFakeContact(message) {
     const phone = message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0];
@@ -18,128 +18,135 @@ function createFakeContact(message) {
     };
 }
 
-async function fetchCommand(sock, chatId, message) {
+async function inspectCommand(sock, chatId, senderId, message, userMessage) {
     const fkontak = createFakeContact(message);
-
+    
     try {
-        // Initial reaction
-        await sock.sendMessage(chatId, {
-            react: { text: "🔍", key: message.key }
-        });
+        const args = userMessage.split(' ').slice(1);
+        const query = args.join(' ');
 
-        const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
-        const url = text.split(' ').slice(1).join(' ').trim();
-
-        if (!url) {
-            return await sock.sendMessage(chatId, { 
-                text: "Please provide a URL." 
+        if (!query) {
+            return await sock.sendMessage(chatId, {
+                text: "Usage: .inspect <url>"
             }, { quoted: fkontak });
         }
 
-        // Fetch content from URL
-        const response = await axios.get(url, { 
-            responseType: 'arraybuffer',
+        await sock.sendMessage(chatId, {
+            text: `Inspecting...`
+        }, { quoted: fkontak });
+
+        // Parse arguments
+        const parts = query.split(' ');
+        const url = parts[0];
+        const flags = parts.slice(1);
+        const download = flags.includes('-d');
+        const json = flags.includes('-j');
+        const headersOnly = flags.includes('-h');
+
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0'
+            },
             timeout: 10000
         });
 
-        const contentType = response.headers['content-type'];
-        if (!contentType) {
-            return await sock.sendMessage(chatId, { 
-                text: "No content type returned." 
-            }, { quoted: fkontak });
-        }
+        const responseInfo = {
+            status: response.status,
+            statusText: response.statusText,
+            url: response.url,
+            headers: {}
+        };
 
-        const buffer = Buffer.from(response.data);
-        const filename = url.split('/').pop() || "file";
-
-        // Handle different content types
-        if (contentType.includes('application/json')) {
-            const json = JSON.parse(buffer.toString());
-            return await sock.sendMessage(chatId, { 
-                text: "```json\n" + JSON.stringify(json, null, 2).slice(0, 4000) + "\n```" 
-            }, { quoted: fkontak });
-        }
-
-        if (contentType.includes('text/html')) {
-            const html = buffer.toString();
-            return await sock.sendMessage(chatId, { 
-                text: html.slice(0, 4000) 
-            }, { quoted: fkontak });
-        }
-
-        if (contentType.includes('text/')) {
-            return await sock.sendMessage(chatId, { 
-                text: buffer.toString().slice(0, 4000) 
-            }, { quoted: fkontak });
-        }
-
-        if (contentType.includes('image')) {
-            return await sock.sendMessage(chatId, { 
-                image: buffer
-            }, { quoted: fkontak });
-        }
-
-        if (contentType.includes('video')) {
-            return await sock.sendMessage(chatId, { 
-                video: buffer
-            }, { quoted: fkontak });
-        }
-
-        if (contentType.includes('audio')) {
-            return await sock.sendMessage(chatId, {
-                audio: buffer,
-                mimetype: "audio/mpeg",
-                fileName: filename
-            }, { quoted: fkontak });
-        }
-
-        if (contentType.includes('application/pdf')) {
-            return await sock.sendMessage(chatId, {
-                document: buffer,
-                mimetype: "application/pdf",
-                fileName: filename
-            }, { quoted: fkontak });
-        }
-
-        if (contentType.includes('application')) {
-            return await sock.sendMessage(chatId, {
-                document: buffer,
-                mimetype: contentType,
-                fileName: filename
-            }, { quoted: fkontak });
-        }
-
-        // If no specific type matched
-        await sock.sendMessage(chatId, { 
-            text: "Unsupported content type." 
-        }, { quoted: fkontak });
-
-        // Error reaction
-        await sock.sendMessage(chatId, { 
-            react: { text: '❌', key: message.key } 
+        response.headers.forEach((value, key) => {
+            responseInfo.headers[key] = value;
         });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const contentType = response.headers.get('content-type') || '';
+
+        if (headersOnly) {
+            let headersText = `Status: ${responseInfo.status} ${responseInfo.statusText}\n`;
+            headersText += `URL: ${responseInfo.url}\n\n`;
+
+            for (const [key, value] of Object.entries(responseInfo.headers)) {
+                headersText += `${key}: ${value}\n`;
+            }
+
+            return await sock.sendMessage(chatId, { text: headersText }, { quoted: fkontak });
+        }
+
+        // Handle media download
+        if (download && (contentType.includes('audio/') ||
+                         contentType.includes('video/') ||
+                         contentType.includes('image/'))) {
+
+            const buffer = await response.arrayBuffer();
+            const fileBuffer = Buffer.from(buffer);
+
+            let mediaMsg;
+
+            if (contentType.includes('audio/')) {
+                mediaMsg = { audio: fileBuffer, mimetype: contentType };
+            } else if (contentType.includes('video/')) {
+                mediaMsg = { video: fileBuffer, mimetype: contentType };
+            } else if (contentType.includes('image/')) {
+                mediaMsg = { image: fileBuffer, mimetype: contentType };
+            }
+
+            await sock.sendMessage(chatId, mediaMsg, { quoted: fkontak });
+            return;
+        }
+
+        // Handle JSON
+        if (json || contentType.includes('application/json')) {
+            let jsonData;
+            try {
+                jsonData = await response.json();
+            } catch (err) {
+                jsonData = null;
+            }
+
+            const formattedJson = jsonData ? JSON.stringify(jsonData, null, 2) : '{}';
+
+            return await sock.sendMessage(chatId, { 
+                text: `\`\`\`json\n${formattedJson}\n\`\`\`` 
+            }, { quoted: fkontak });
+        }
+
+        // Handle text
+        if (contentType.includes('text/')) {
+            const text = await response.text();
+            return await sock.sendMessage(chatId, { 
+                text: text.length > 4000 ? text.substring(0, 4000) + "..." : text 
+            }, { quoted: fkontak });
+        }
+
+        // Fallback
+        await sock.sendMessage(chatId, {
+            text: `Status: ${responseInfo.status}\nContent-Type: ${contentType}`
+        }, { quoted: fkontak });
 
     } catch (error) {
-        console.error('Fetch error:', error.message);
-        
-        let errorMessage = "Failed to fetch URL.";
-        
-        if (error.message.includes('timeout')) {
-            errorMessage = "Request timeout.";
+        console.error('Inspect error:', error.message);
+
+        let errorMessage;
+        if (error.name === 'AbortError' || error.message.includes('timeout')) {
+            errorMessage = 'Request timeout.';
         } else if (error.code === 'ENOTFOUND') {
-            errorMessage = "URL not found.";
-        } else if (error.response?.status === 404) {
-            errorMessage = "Page not found.";
+            errorMessage = 'Could not resolve domain.';
+        } else if (error.code === 'ECONNREFUSED') {
+            errorMessage = 'Connection refused.';
+        } else if (error.message.includes('HTTP')) {
+            errorMessage = `Error: ${error.message}`;
+        } else {
+            errorMessage = 'Failed to inspect URL.';
         }
 
-        await sock.sendMessage(chatId, { 
-            text: errorMessage 
-        }, { quoted: fkontak });
-        
-        await sock.sendMessage(chatId, { 
-            react: { text: '❌', key: message.key } 
-        });
+        await sock.sendMessage(chatId, { text: errorMessage }, { quoted: fkontak });
     }
 }
 
-module.exports = fetchCommand;
+module.exports = inspectCommand;

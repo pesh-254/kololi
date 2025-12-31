@@ -1,6 +1,6 @@
 
 const path = require('path');
-
+const fs = require('fs');
 // Redirect temp storage away from system /tmp
 const customTemp = path.join(process.cwd(), 'temp');
 if (!fs.existsSync(customTemp)) fs.mkdirSync(customTemp, { recursive: true });
@@ -62,10 +62,8 @@ require('./config.js');
 const { isBanned } = require('./lib/isBanned');
 const yts = require('yt-search');
 const { fetchBuffer } = require('./lib/myfunc');
-const fs = require('fs');
 const fetch = require('node-fetch');
 const ytdl = require('ytdl-core');
-const path = require('path');
 const chalk = require('chalk');
 const axios = require('axios');
 const ffmpeg = require('fluent-ffmpeg');

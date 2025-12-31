@@ -1,270 +1,64 @@
 const yts = require('yt-search');
-const axios = require('axios');
-const fetch = require('node-fetch');
 
-function createFakeContact(message) {
-    const phone = message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0];
-    return {
-        key: {
-            participants: "0@s.whatsapp.net",
-            remoteJid: "0@s.whatsapp.net",
-            fromMe: false
-        },
-        message: {
-            contactMessage: {
-                displayName: "DAVE-X",
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Dave-X;;;\nFN:DAVE-X\nTEL;waid=${phone}:${phone}\nEND:VCARD`
-            }
-        },
-        participant: "0@s.whatsapp.net"
-    };
-}
-
-async function ytplayCommand(sock, chatId, message) {
-    const fkontak = createFakeContact(message);
-
+async function ytsCommand(sock, chatId, senderId, message, userMessage) {
     try {
-        // Initial reaction
+        const args = userMessage.split(' ').slice(1);
+        const query = args.join(' ');
+
+        if (!query) {
+            return await sock.sendMessage(chatId, {
+                text: `🔍 *YouTube Search Command*\n\nUsage:\n.yts <search_query>\n\nExample:\n.yts Godzilla\n.yts latest songs\n.yts tutorial for JUNE-X`
+            });
+        }
+
         await sock.sendMessage(chatId, {
-            react: { text: "📺", key: message.key }
-        });
+            text: `🌍 Searching YouTube Results for: "${query}"...`
+        },{ quoted: message });
 
-        const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
-        const input = text.split(' ').slice(1).join(' ').trim();
-
-        if (!input) {
-            return await sock.sendMessage(chatId, { 
-                text: "Please provide a YouTube link or video title." 
-            }, { quoted: fkontak });
-        }
-
-        let videoUrl;
-        let videoInfo;
-
-        // Check if input is a YouTube URL
-        const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+$/;
-        if (youtubeRegex.test(input)) {
-            videoUrl = input;
-
-            // Extract video ID
-            let videoId;
-            if (input.includes('youtu.be/')) {
-                videoId = input.split('youtu.be/')[1]?.split('?')[0];
-            } else if (input.includes('youtube.com/watch?v=')) {
-                videoId = input.split('v=')[1]?.split('&')[0];
-            } else if (input.includes('youtube.com/embed/')) {
-                videoId = input.split('embed/')[1]?.split('?')[0];
-            }
-
-            if (!videoId) {
-                return await sock.sendMessage(chatId, { 
-                    text: "Invalid YouTube URL." 
-                }, { quoted: fkontak });
-            }
-
-            // Get video info
-            const searchResult = await yts({ videoId });
-            if (!searchResult || !searchResult.title) {
-                return await sock.sendMessage(chatId, { 
-                    text: "Failed to fetch video info." 
-                }, { quoted: fkontak });
-            }
-
-            videoInfo = searchResult;
-        } else {
-            // Search by query
-            const { videos } = await yts(input);
-            if (!videos || videos.length === 0) {
-                return await sock.sendMessage(chatId, { 
-                    text: "No videos found." 
-                }, { quoted: fkontak });
-            }
-
-            const video = videos[0];
-            videoUrl = video.url;
-            videoInfo = video;
-        }
-
-        // Fetch video data
-        const response = await axios.get(`https://veron-apis.zone.id/downloader/youtube1?url=${videoUrl}`, {
-            timeout: 10000
-        });
-        
-        const ApiData = response.data;
-
-        if (!ApiData?.success || !ApiData.result?.downloadUrl) {
-            return await sock.sendMessage(chatId, { 
-                text: "Failed to fetch video." 
-            }, { quoted: fkontak });
-        }
-
-        const downloadUrl = ApiData.result.downloadUrl;
-        const title = videoInfo.title;
-        const thumbnail = videoInfo.thumbnail;
-        const duration = videoInfo.timestamp || "Unknown";
-        const views = videoInfo.views || "Unknown";
-
-        // Get thumbnail
-        let thumbBuffer = null;
+        let searchResults;
         try {
-            const thumbResponse = await fetch(thumbnail);
-            thumbBuffer = Buffer.from(await thumbResponse.arrayBuffer());
-        } catch (err) {
-            // Ignore thumbnail error
+            searchResults = await yts(query);
+        } catch (searchError) {
+            console.error('YouTube search error:', searchError);
+            return await sock.sendMessage(chatId, {
+                text: '❌ Error searching YouTube. Please try again later.'
+            });
         }
 
-        // Send video
-        await sock.sendMessage(chatId, {
-            video: { url: downloadUrl },
-            mimetype: "video/mp4",
-            caption: `📹 ${title}\n⏱️ ${duration} | 👁️ ${views}\n\n📱 By DAVE-X Bot`,
-            thumbnail: thumbBuffer
-        }, { quoted: fkontak });
+        const videos = (searchResults && searchResults.videos) ? searchResults.videos.slice(0, 15) : [];
 
-        // Success reaction
-        await sock.sendMessage(chatId, { 
-            react: { text: '✅', key: message.key } 
+        if (videos.length === 0) {
+            return await sock.sendMessage(chatId, {
+                text: `❌ No results found for "${query}"\n\nTry different keywords.`
+            });
+        }
+
+        let resultMessage = `📑 *YOUTUBE SEARCH RESULTS:* "${query}"\n\n`;
+
+        videos.forEach((video, index) => {
+            const duration = video.timestamp || 'N/A';
+            const views = video.views ? video.views.toLocaleString() : 'N/A';
+            const uploadDate = video.ago || 'N/A';
+
+            resultMessage += `*${index + 1}. ${video.title}*\n`;
+            resultMessage += `🌐 *URL:* ${video.url}\n`;
+            resultMessage += `⏱️ *Duration:* ${duration}\n`;
+            resultMessage += `🪟 *Views:* ${views}\n`;
+            resultMessage += `⤴️ *Uploaded:* ${uploadDate}\n`;
+            resultMessage += `🧾 *Channel:* ${video.author?.name || 'N/A'}\n\n`;
         });
 
+        resultMessage += `🌍 *Tip:* Use play <url> to download audio\n`;
+        resultMessage += `🗺️ Use video <url> to download video`;
+
+        await sock.sendMessage(chatId, { text: resultMessage },{ quoted: message});
+
     } catch (error) {
-        console.error('Error in ytplayCommand:', error.message);
-
-        let errorMessage = "Failed to download video.";
-
-        if (error.message.includes('timeout')) {
-            errorMessage = "Request timeout.";
-        } else if (error.message.includes('Network Error')) {
-            errorMessage = "Network error.";
-        }
-
-        await sock.sendMessage(chatId, { 
-            text: errorMessage 
-        }, { quoted: fkontak });
-
-        await sock.sendMessage(chatId, { 
-            react: { text: '❌', key: message.key } 
+        console.error('YouTube search command error:', error);
+        await sock.sendMessage(chatId, {
+            text: '❌ An error occurred while searching YouTube. Please try again.'
         });
     }
 }
 
-async function ytsongCommand(sock, chatId, message) {
-    const fkontak = createFakeContact(message);
-
-    try {
-        // Initial reaction
-        await sock.sendMessage(chatId, {
-            react: { text: "🎵", key: message.key }
-        });
-
-        const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
-        const input = text.split(' ').slice(1).join(' ').trim();
-
-        if (!input) {
-            return await sock.sendMessage(chatId, { 
-                text: "Please provide a YouTube link or song name." 
-            }, { quoted: fkontak });
-        }
-
-        let videoUrl;
-        let videoInfo;
-
-        // Check if input is a YouTube URL
-        const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+$/;
-        if (youtubeRegex.test(input)) {
-            videoUrl = input;
-
-            // Extract video ID
-            let videoId;
-            if (input.includes('youtu.be/')) {
-                videoId = input.split('youtu.be/')[1]?.split('?')[0];
-            } else if (input.includes('youtube.com/watch?v=')) {
-                videoId = input.split('v=')[1]?.split('&')[0];
-            } else if (input.includes('youtube.com/embed/')) {
-                videoId = input.split('embed/')[1]?.split('?')[0];
-            }
-
-            if (!videoId) {
-                return await sock.sendMessage(chatId, { 
-                    text: "Invalid YouTube URL." 
-                }, { quoted: fkontak });
-            }
-
-            // Get video info
-            const searchResult = await yts({ videoId });
-            if (!searchResult || !searchResult.title) {
-                return await sock.sendMessage(chatId, { 
-                    text: "Failed to fetch song info." 
-                }, { quoted: fkontak });
-            }
-
-            videoInfo = searchResult;
-        } else {
-            // Search by query
-            const { videos } = await yts(input);
-            if (!videos || videos.length === 0) {
-                return await sock.sendMessage(chatId, { 
-                    text: "No songs found." 
-                }, { quoted: fkontak });
-            }
-
-            const video = videos[0];
-            videoUrl = video.url;
-            videoInfo = video;
-        }
-
-        // Fetch audio data
-        const response = await axios.get(`https://api.privatezia.biz.id/api/downloader/ytmp3?url=${videoUrl}`, {
-            timeout: 10000
-        });
-        
-        const apiData = response.data;
-
-        if (!apiData?.status || !apiData.result?.downloadUrl) {
-            return await sock.sendMessage(chatId, { 
-                text: "Failed to fetch audio." 
-            }, { quoted: fkontak });
-        }
-
-        const audioUrl = apiData.result.downloadUrl;
-        const title = apiData.result.title || videoInfo.title;
-        const duration = videoInfo.timestamp || "Unknown";
-        const size = apiData.result.size || "Unknown";
-
-        // Send audio
-        await sock.sendMessage(chatId, {
-            audio: { url: audioUrl },
-            mimetype: "audio/mpeg",
-            fileName: `${title.replace(/[^\w\s]/gi, '')}.mp3`,
-            caption: `🎵 ${title}\n⏱️ ${duration} | 📦 ${size}\n\n📱 By DAVE-X Bot`
-        }, { quoted: fkontak });
-
-        // Success reaction
-        await sock.sendMessage(chatId, { 
-            react: { text: '✅', key: message.key } 
-        });
-
-    } catch (error) {
-        console.error('Error in ytsongCommand:', error.message);
-
-        let errorMessage = "Failed to download audio.";
-
-        if (error.message.includes('timeout')) {
-            errorMessage = "Request timeout.";
-        } else if (error.message.includes('Network Error')) {
-            errorMessage = "Network error.";
-        }
-
-        await sock.sendMessage(chatId, { 
-            text: errorMessage 
-        }, { quoted: fkontak });
-
-        await sock.sendMessage(chatId, { 
-            react: { text: '❌', key: message.key } 
-        });
-    }
-}
-
-module.exports = {
-    ytplayCommand,
-    ytsongCommand
-};
+module.exports = ytsCommand;

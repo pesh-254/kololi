@@ -1,4 +1,3 @@
-const { ttdl } = require("ruhend-scraper");
 const axios = require('axios');
 
 // Store processed message IDs to prevent duplicates
@@ -24,7 +23,7 @@ function createFakeContact(message) {
 
 async function tiktokCommand(sock, chatId, message) {
     const fkontak = createFakeContact(message);
-    
+
     try {
         // Check if message has already been processed
         if (processedMessages.has(message.key.id)) {
@@ -76,101 +75,117 @@ async function tiktokCommand(sock, chatId, message) {
         });
 
         try {
-            // Use API
-            const apiUrl = `https://api.siputzx.my.id/api/d/tiktok?url=${encodeURIComponent(url)}`;
+            // Use new API
+            const apiUrl = `https://apiskeith.vercel.app/download/tiktokdl3?url=${encodeURIComponent(url)}`;
             let videoUrl = null;
             let title = null;
+            let audioUrl = null;
+            let thumbnailUrl = null;
 
             // Call API
             try {
                 const response = await axios.get(apiUrl, { 
-                    timeout: 10000,
+                    timeout: 15000,
                     headers: {
-                        'User-Agent': 'Mozilla/5.0'
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                     }
                 });
 
+                console.log('API response received');
+                
                 if (response.data?.status) {
-                    // Check if the API returned video data
-                    if (response.data.data) {
-                        // Check for urls array first
-                        if (response.data.data.urls && Array.isArray(response.data.data.urls) && response.data.data.urls.length > 0) {
-                            videoUrl = response.data.data.urls[0];
-                            title = response.data.data.metadata?.title || "TikTok Video";
-                        } else if (response.data.data.video_url) {
-                            videoUrl = response.data.data.video_url;
-                            title = response.data.data.metadata?.title || "TikTok Video";
-                        } else if (response.data.data.url) {
-                            videoUrl = response.data.data.url;
-                            title = response.data.data.metadata?.title || "TikTok Video";
+                    const apiResult = response.data.result;
+                    
+                    // Get title
+                    if (apiResult.title) {
+                        title = apiResult.title;
+                    }
+                    
+                    // Get thumbnail
+                    if (apiResult.thumbnailUrl) {
+                        thumbnailUrl = apiResult.thumbnailUrl;
+                    }
+                    
+                    // Get video URL - prefer HD, fallback to normal
+                    if (apiResult.downloadUrls) {
+                        if (apiResult.downloadUrls.mp4HD && apiResult.downloadUrls.mp4HD.length > 0) {
+                            videoUrl = apiResult.downloadUrls.mp4HD[0];
+                            console.log('Using HD video');
+                        } else if (apiResult.downloadUrls.mp4 && apiResult.downloadUrls.mp4.length > 0) {
+                            videoUrl = apiResult.downloadUrls.mp4[0];
+                            console.log('Using standard video');
+                        }
+                        
+                        // Get audio URL if available
+                        if (apiResult.downloadUrls.mp3 && apiResult.downloadUrls.mp3.length > 0) {
+                            audioUrl = apiResult.downloadUrls.mp3[0];
+                            console.log('Audio URL available');
                         }
                     }
+                } else {
+                    throw new Error('API returned false status');
                 }
             } catch (apiError) {
-                console.error('API failed:', apiError.message);
+                console.error('New API failed:', apiError.message);
+                throw new Error('Download service unavailable');
             }
 
-            // If API didn't work, try ttdl method
             if (!videoUrl) {
-                try {
-                    let downloadData = await ttdl(url);
-                    if (downloadData?.data?.length > 0) {
-                        const mediaData = downloadData.data;
-                        for (let i = 0; i < Math.min(5, mediaData.length); i++) {
-                            const media = mediaData[i];
-                            const mediaUrl = media.url;
+                throw new Error('No video URL found');
+            }
 
-                            // Check if URL is video
-                            const isVideo = /\.(mp4|mov|avi|mkv|webm)$/i.test(mediaUrl) || 
-                                          media.type === 'video';
+            console.log('Video URL found');
 
-                            if (isVideo) {
-                                await sock.sendMessage(chatId, {
-                                    video: { url: mediaUrl },
-                                    mimetype: "video/mp4",
-                                    caption: "By DAVE-X Bot"
-                                }, { quoted: fkontak });
-                            } else {
-                                await sock.sendMessage(chatId, {
-                                    image: { url: mediaUrl },
-                                    caption: "By DAVE-X Bot"
-                                }, { quoted: fkontak });
-                            }
+            // Send video
+            const caption = title ? `${title}\n\nBy DAVE-X Bot` : "By DAVE-X Bot";
+
+            // Try URL method first
+            try {
+                await sock.sendMessage(chatId, {
+                    video: { url: videoUrl },
+                    mimetype: "video/mp4",
+                    caption: caption
+                }, { quoted: fkontak });
+                console.log('Video sent via URL method');
+
+                // Send audio separately if available
+                if (audioUrl) {
+                    setTimeout(async () => {
+                        try {
+                            await sock.sendMessage(chatId, {
+                                audio: { url: audioUrl },
+                                mimetype: "audio/mpeg",
+                                fileName: "audio.mp3"
+                            }, { quoted: fkontak });
+                            console.log('Audio sent');
+                        } catch (audioError) {
+                            console.error('Failed to send audio:', audioError.message);
                         }
-                        return;
-                    }
-                } catch (ttdlError) {
-                    console.error("ttdl fallback failed:", ttdlError.message);
+                    }, 1000);
                 }
+
+                return;
+
+            } catch (urlError) {
+                console.error('URL method failed:', urlError.message);
+                throw new Error('Failed to send video');
             }
-
-            // Send the video if we got a URL
-            if (videoUrl) {
-                try {
-                    // Try URL method first
-                    const caption = title ? `${title}\n\nBy DAVE-X Bot` : "By DAVE-X Bot";
-
-                    await sock.sendMessage(chatId, {
-                        video: { url: videoUrl },
-                        mimetype: "video/mp4",
-                        caption: caption
-                    }, { quoted: fkontak });
-
-                    return;
-                } catch (urlError) {
-                    console.error('URL method failed:', urlError.message);
-                }
-            }
-
-            // If we reach here, no method worked
-            return await sock.sendMessage(chatId, { 
-                text: "Failed to download video."
-            }, { quoted: fkontak });
 
         } catch (error) {
             console.error('Download error:', error.message);
+            
+            let errorMessage = "Failed to download video.";
+            
+            if (error.message.includes('Download service')) {
+                errorMessage = "Download service unavailable.";
+            } else if (error.message.includes('No video URL')) {
+                errorMessage = "Video not found.";
+            } else if (error.message.includes('timeout')) {
+                errorMessage = "Request timeout.";
+            }
+
             await sock.sendMessage(chatId, { 
-                text: "Failed to download video."
+                text: errorMessage
             }, { quoted: fkontak });
         }
 
@@ -179,6 +194,11 @@ async function tiktokCommand(sock, chatId, message) {
         await sock.sendMessage(chatId, { 
             text: "An error occurred."
         }, { quoted: fkontak });
+    } finally {
+        // Remove message from processed set
+        setTimeout(() => {
+            processedMessages.delete(message.key.id);
+        }, 1000);
     }
 }
 

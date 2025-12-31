@@ -88,7 +88,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `┗▣ \n\n`;
 
     // OWNER COMMANDS
-    menu += `┏▣ ◈ *OWNER MENU* ◈\n`;
+    menu += `┏▣ ◈ *OWNER* ◈\n`;
     menu += `│› ${prefix2}setowner\n`;
     menu += `│› ${prefix2}setprefix\n`;
     menu += `│› ${prefix2}mode\n`;
@@ -101,7 +101,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `┗▣ \n\n`;
 
     // GROUP COMMANDS
-    menu += `┏▣ ◈ *GROUP MENU* ◈\n`;
+    menu += `┏▣ ◈ *GROUP* ◈\n`;
     menu += `│› ${prefix2}promote\n`;
     menu += `│› ${prefix2}demote\n`;
     menu += `│› ${prefix2}kick\n`;
@@ -119,7 +119,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `┗▣ \n\n`;
 
     // AI COMMANDS
-    menu += `┏▣ ◈ *AI MENU* ◈\n`;
+    menu += `┏▣ ◈ *AI* ◈\n`;
     menu += `│› ${prefix2}gpt\n`;
     menu += `│› ${prefix2}gemini\n`;
     menu += `│› ${prefix2}imagine\n`;
@@ -127,7 +127,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `┗▣ \n\n`;
 
     // MEDIA DOWNLOAD
-    menu += `┏▣ ◈ *MEDIA MENU* ◈\n`;
+    menu += `┏▣ ◈ *MEDIA* ◈\n`;
     menu += `│› ${prefix2}ytmp4\n`;
     menu += `│› ${prefix2}video\n`;
     menu += `│› ${prefix2}song\n`;
@@ -139,7 +139,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `┗▣ \n\n`;
 
     // STICKER COMMANDS
-    menu += `┏▣ ◈ *STICKER MENU* ◈\n`;
+    menu += `┏▣ ◈ *STICKER* ◈\n`;
     menu += `│› ${prefix2}sticker\n`;
     menu += `│› ${prefix2}tgsticker\n`;
     menu += `│› ${prefix2}take\n`;
@@ -147,7 +147,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `┗▣ \n\n`;
 
     // TOOLS COMMANDS
-    menu += `┏▣ ◈ *TOOLS MENU* ◈\n`;
+    menu += `┏▣ ◈ *TOOLS* ◈\n`;
     menu += `│› ${prefix2}ping\n`;
     menu += `│› ${prefix2}runtime\n`;
     menu += `│› ${prefix2}trt\n`;
@@ -159,7 +159,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `┗▣ \n\n`;
 
     // GAMES COMMANDS
-    menu += `┏▣ ◈ *GAMES MENU* ◈\n`;
+    menu += `┏▣ ◈ *GAMES* ◈\n`;
     menu += `│› ${prefix2}tictactoe\n`;
     menu += `│› ${prefix2}hangman\n`;
     menu += `│› ${prefix2}truth\n`;
@@ -167,7 +167,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `┗▣ \n\n`;
 
     // TEXT/IMAGE COMMANDS
-    menu += `┏▣ ◈ *TEXT/IMAGE MENU* ◈\n`;
+    menu += `┏▣ ◈ *TEXT/IMAGE* ◈\n`;
     menu += `│› ${prefix2}neon\n`;
     menu += `│› ${prefix2}matrix\n`;
     menu += `│› ${prefix2}fire\n`;
@@ -177,7 +177,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `┗▣ \n\n`;
 
     // DEVELOPER COMMANDS
-    menu += `┏▣ ◈ *DEVELOPER MENU* ◈\n`;
+    menu += `┏▣ ◈ *DEVELOPER* ◈\n`;
     menu += `│› ${prefix2}git\n`;
     menu += `│› ${prefix2}github\n`;
     menu += `│› ${prefix2}script\n`;

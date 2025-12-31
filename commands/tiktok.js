@@ -1,3 +1,4 @@
+const { ttdl } = require("ruhend-scraper");
 const axios = require('axios');
 
 // Store processed message IDs to prevent duplicates
@@ -33,7 +34,7 @@ async function tiktokCommand(sock, chatId, message) {
         // Add message ID to processed set
         processedMessages.add(message.key.id);
 
-        // Clean up old message IDs after 5 minutes
+        // Clean up old message IDs
         setTimeout(() => {
             processedMessages.delete(message.key.id);
         }, 5 * 60 * 1000);
@@ -42,24 +43,24 @@ async function tiktokCommand(sock, chatId, message) {
 
         if (!text) {
             return await sock.sendMessage(chatId, { 
-                text: "Provide TikTok URL."
+                text: "Please provide a TikTok link."
             }, { quoted: fkontak });
         }
 
         // Extract URL from command
-        const url = text.replace(/^tt\s+/i, '').trim();
+        const url = text.split(' ').slice(1).join(' ').trim();
 
         if (!url) {
             return await sock.sendMessage(chatId, { 
-                text: "Provide TikTok URL."
+                text: "Please provide a TikTok link."
             }, { quoted: fkontak });
         }
 
-        // Check for various TikTok URL formats
+        // Check for TikTok URL formats
         const tiktokPatterns = [
-            /https?:\/\/(?:www\.)?tiktok\.com\//,
-            /https?:\/\/(?:vm\.)?tiktok\.com\//,
-            /https?:\/\/(?:vt\.)?tiktok\.com\//
+            /tiktok\.com\//,
+            /vm\.tiktok\.com\//,
+            /vt\.tiktok\.com\//
         ];
 
         const isValidUrl = tiktokPatterns.some(pattern => pattern.test(url));
@@ -71,95 +72,112 @@ async function tiktokCommand(sock, chatId, message) {
         }
 
         await sock.sendMessage(chatId, {
-            react: { text: '⏳', key: message.key }
+            react: { text: '🔄', key: message.key }
         });
 
         try {
             // Use API
-            const apiUrl = `https://apis-sandarux.zone.id/api/tiktok/tiktokdl?url=${encodeURIComponent(url)}`;
+            const apiUrl = `https://api.siputzx.my.id/api/d/tiktok?url=${encodeURIComponent(url)}`;
+            let videoUrl = null;
+            let title = null;
 
-            const response = await axios.get(apiUrl, { 
-                timeout: 15000,
-                headers: {
-                    'accept': '*/*',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                }
-            });
-
-            const data = response.data;
-
-            if (!data || !data.status || !data.result) {
-                return await sock.sendMessage(chatId, { 
-                    text: "Failed to fetch TikTok."
-                }, { quoted: fkontak });
-            }
-
-            const res = data.result;
-
-            // Check if video URL exists
-            if (!res.nowm) {
-                return await sock.sendMessage(chatId, { 
-                    text: "No video found."
-                }, { quoted: fkontak });
-            }
-
-            const caption = `TikTok Download\n\nTitle: ${res.title || "-"}\nAuthor: ${res.caption || "-"}\nDuration: ${res.duration || "-"}s\nViews: ${res.stats?.views || "-"}\nLikes: ${res.stats?.likes || "-"}`;
-
+            // Call API
             try {
-                // Try to download video as buffer
-                const videoResponse = await axios.get(res.nowm, {
-                    responseType: 'arraybuffer',
-                    timeout: 60000,
-                    maxContentLength: 100 * 1024 * 1024,
+                const response = await axios.get(apiUrl, { 
+                    timeout: 10000,
                     headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                        'Accept': 'video/mp4,video/*,*/*;q=0.9',
-                        'Accept-Language': 'en-US,en;q=0.9'
+                        'User-Agent': 'Mozilla/5.0'
                     }
                 });
 
-                const videoBuffer = Buffer.from(videoResponse.data);
-
-                if (videoBuffer.length === 0) {
-                    throw new Error("Video buffer empty");
+                if (response.data?.status) {
+                    // Check if the API returned video data
+                    if (response.data.data) {
+                        // Check for urls array first
+                        if (response.data.data.urls && Array.isArray(response.data.data.urls) && response.data.data.urls.length > 0) {
+                            videoUrl = response.data.data.urls[0];
+                            title = response.data.data.metadata?.title || "TikTok Video";
+                        } else if (response.data.data.video_url) {
+                            videoUrl = response.data.data.video_url;
+                            title = response.data.data.metadata?.title || "TikTok Video";
+                        } else if (response.data.data.url) {
+                            videoUrl = response.data.data.url;
+                            title = response.data.data.metadata?.title || "TikTok Video";
+                        }
+                    }
                 }
-
-                await sock.sendMessage(chatId, {
-                    video: videoBuffer,
-                    caption: caption,
-                    mimetype: "video/mp4"
-                }, { quoted: fkontak });
-
-            } catch (downloadError) {
-                // Fallback to URL method
-                await sock.sendMessage(chatId, {
-                    video: { url: res.nowm },
-                    caption: caption,
-                    mimetype: "video/mp4"
-                }, { quoted: fkontak });
+            } catch (apiError) {
+                console.error('API failed:', apiError.message);
             }
+
+            // If API didn't work, try ttdl method
+            if (!videoUrl) {
+                try {
+                    let downloadData = await ttdl(url);
+                    if (downloadData?.data?.length > 0) {
+                        const mediaData = downloadData.data;
+                        for (let i = 0; i < Math.min(5, mediaData.length); i++) {
+                            const media = mediaData[i];
+                            const mediaUrl = media.url;
+
+                            // Check if URL is video
+                            const isVideo = /\.(mp4|mov|avi|mkv|webm)$/i.test(mediaUrl) || 
+                                          media.type === 'video';
+
+                            if (isVideo) {
+                                await sock.sendMessage(chatId, {
+                                    video: { url: mediaUrl },
+                                    mimetype: "video/mp4",
+                                    caption: "By DAVE-X Bot"
+                                }, { quoted: fkontak });
+                            } else {
+                                await sock.sendMessage(chatId, {
+                                    image: { url: mediaUrl },
+                                    caption: "By DAVE-X Bot"
+                                }, { quoted: fkontak });
+                            }
+                        }
+                        return;
+                    }
+                } catch (ttdlError) {
+                    console.error("ttdl fallback failed:", ttdlError.message);
+                }
+            }
+
+            // Send the video if we got a URL
+            if (videoUrl) {
+                try {
+                    // Try URL method first
+                    const caption = title ? `${title}\n\nBy DAVE-X Bot` : "By DAVE-X Bot";
+
+                    await sock.sendMessage(chatId, {
+                        video: { url: videoUrl },
+                        mimetype: "video/mp4",
+                        caption: caption
+                    }, { quoted: fkontak });
+
+                    return;
+                } catch (urlError) {
+                    console.error('URL method failed:', urlError.message);
+                }
+            }
+
+            // If we reach here, no method worked
+            return await sock.sendMessage(chatId, { 
+                text: "Failed to download video."
+            }, { quoted: fkontak });
 
         } catch (error) {
-            console.error("TikTok Error:", error);
-
-            if (error.code === 'ECONNABORTED') {
-                await sock.sendMessage(chatId, { 
-                    text: "Request timeout. Try again."
-                }, { quoted: fkontak });
-            } else if (error.response?.status === 404) {
-                await sock.sendMessage(chatId, { 
-                    text: "Video not found."
-                }, { quoted: fkontak });
-            } else {
-                await sock.sendMessage(chatId, { 
-                    text: "Failed to fetch TikTok."
-                }, { quoted: fkontak });
-            }
+            console.error('Download error:', error.message);
+            await sock.sendMessage(chatId, { 
+                text: "Failed to download video."
+            }, { quoted: fkontak });
         }
+
     } catch (error) {
-        console.error('TikTok command error:', error);
+        console.error('Command error:', error.message);
         await sock.sendMessage(chatId, { 
-            text: "Error occurred."
+            text: "An error occurred."
         }, { quoted: fkontak });
     }
 }

@@ -55,52 +55,54 @@ async function facebookCommand(sock, chatId, message) {
             react: { text: '⬇️', key: message.key }
         });
 
-        // Try API
-        const apiUrl = `https://api.hanggts.xyz/download/facebook?url=${encodeURIComponent(url)}`;
+        // Use new API
+        const apiUrl = `https://apiskeith.vercel.app/download/fbdown?url=${encodeURIComponent(url)}`;
         let apiResult;
 
         try {
             const response = await axios.get(apiUrl, {
                 timeout: 15000,
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                 }
             });
 
             apiResult = response.data;
+            console.log('API response:', apiResult);
         } catch (error) {
             console.error('API call failed:', error.message);
             throw new Error('Download service unavailable');
         }
 
-        // Extract video URL
+        // Extract video URL from API response
         let fbvid = null;
-        
-        if (apiResult.status === true && apiResult.result?.media) {
-            fbvid = apiResult.result.media.video_hd || 
-                    apiResult.result.media.video_sd || 
-                    apiResult.result.media.video;
-        } else if (apiResult.url) {
-            fbvid = apiResult.url;
-        } else if (apiResult.result?.url) {
-            fbvid = apiResult.result.url;
+        let title = "Facebook Video";
+
+        if (apiResult && apiResult.result) {
+            // Check for HD quality first
+            if (apiResult.result.hd) {
+                fbvid = apiResult.result.hd;
+            } else if (apiResult.result.sd) {
+                fbvid = apiResult.result.sd;
+            } else if (apiResult.result.url) {
+                fbvid = apiResult.result.url;
+            }
+            
+            // Extract title if available
+            if (apiResult.result.title) {
+                title = apiResult.result.title;
+            }
         }
 
         if (!fbvid) {
             throw new Error('Video not found or inaccessible');
         }
 
-        // Extract title
-        const title = apiResult.result?.info?.title || 
-                      apiResult.result?.title || 
-                      apiResult.title || 
-                      "Facebook Video";
-
         console.log('Video URL found:', fbvid);
 
         // Try URL method first
         try {
-            const caption = `📹 ${title}\n\n📱 By DAVE-X Bot`;
+            const caption = `${title}\n\nBy DAVE-X Bot`;
 
             await sock.sendMessage(chatId, {
                 video: { url: fbvid },
@@ -140,7 +142,7 @@ async function facebookCommand(sock, chatId, message) {
             });
 
             // Send downloaded video
-            const caption = `📹 ${title}\n\n📱 By DAVE-X Bot`;
+            const caption = `${title}\n\nBy DAVE-X Bot`;
 
             await sock.sendMessage(chatId, {
                 video: fs.readFileSync(tempFile),
@@ -155,7 +157,7 @@ async function facebookCommand(sock, chatId, message) {
         console.error('Facebook command error:', error.message);
 
         let errorMessage;
-        
+
         if (error.message.includes('Please provide')) {
             errorMessage = "Please provide a Facebook video URL.";
         } else if (error.message.includes('Invalid Facebook')) {

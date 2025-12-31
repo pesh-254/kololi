@@ -1,4 +1,3 @@
-
 const settings = require('../settings');
 const fs = require('fs');
 const path = require('path');
@@ -32,7 +31,7 @@ const detectPlatform = () => {
   if (process.env.PORTS && process.env.CYPHERX_HOST_ID) return "CypherX";
   if (process.env.P_SERVER_UUID) return "Panel";
   if (process.env.LXC) return "Linux Container";
-  
+
   switch (os.platform()) {
     case "win32": return "Windows";
     case "darwin": return "macOS";
@@ -56,117 +55,127 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     const prefix2 = getPrefix();
     let newOwner = getOwnerName();
     const menuSettings = getMenuSettings();
-    
-    let menu = `EXCELLENCE IS NOT A SINGULAR ACT, BUT A HABIT.\n`;
-    menu += `FEW HOURS TO 2026 - FINISH STRONG\n\n`;
-    
-    menu += `┌───── DAVE-X MENU ─────┐\n`;
-    menu += `│ Prefix: [${prefix2}]\n`;
-    menu += `│ Owner: ${newOwner}\n`;
-    menu += `│ Mode: ${currentMode}\n`;
-    menu += `│ Platform: ${hostName}\n`;
-    menu += `│ Speed: ${ping} ms\n`;
-    menu += `│ Uptime: ${uptimeFormatted}\n`;
-    menu += `│ Version: v${settings.version}\n`;
-    menu += `│ RAM: ${progressBar(systemUsedMemory, totalMemory)}\n`;
-    menu += `└───────────────────────┘\n\n`;
 
-    // ESSENTIAL OWNER & SETTINGS COMMANDS FIRST
-    menu += `┌───── ESSENTIAL SETTINGS ─────┐\n`;
-    menu += `│ ${prefix2}setowner\n`;
-    menu += `│ ${prefix2}setprefix\n`;
-    menu += `│ ${prefix2}mode\n`;
-    menu += `│ ${prefix2}restart\n`;
-    menu += `│ ${prefix2}ban\n`;
-    menu += `│ ${prefix2}unban\n`;
-    menu += `│ ${prefix2}sudo\n`;
-    menu += `│ ${prefix2}clearsession\n`;
-    menu += `│ ${prefix2}cleartmp\n`;
-    menu += `└───────────────────────┘\n\n`;
+    // Sports quotes
+    const sportsQuotes = [
+        "Champions keep playing until they get it right.",
+        "You miss 100% of the shots you don't take.",
+        "It's not whether you get knocked down, it's whether you get up.",
+        "The harder the battle, the sweeter the victory.",
+        "Pressure is a privilege.",
+        "Success is where preparation and opportunity meet."
+    ];
+    const randomQuote = sportsQuotes[Math.floor(Math.random() * sportsQuotes.length)];
 
-    // GROUP MANAGEMENT
-    menu += `┌───── GROUP ─────┐\n`;
-    menu += `│ ${prefix2}promote\n`;
-    menu += `│ ${prefix2}demote\n`;
-    menu += `│ ${prefix2}kick\n`;
-    menu += `│ ${prefix2}warn\n`;
-    menu += `│ ${prefix2}mute\n`;
-    menu += `│ ${prefix2}unmute\n`;
-    menu += `│ ${prefix2}antilink\n`;
-    menu += `│ ${prefix2}settings\n`;
-    menu += `│ ${prefix2}groupinfo\n`;
-    menu += `│ ${prefix2}admins\n`;
-    menu += `│ ${prefix2}welcome\n`;
-    menu += `│ ${prefix2}goodbye\n`;
-    menu += `│ ${prefix2}open\n`;
-    menu += `│ ${prefix2}close\n`;
-    menu += `└───────────────────────┘\n\n`;
+    let menu = `${randomQuote}\n\n`;
+
+    menu += `╭─ DAVE-X MENU ─╮\n`;
+    menu += `├ Prefix: [${prefix2}]\n`;
+    menu += `├ Owner: ${newOwner}\n`;
+    menu += `├ Mode: ${currentMode}\n`;
+    menu += `├ Platform: ${hostName}\n`;
+    menu += `├ Speed: ${ping} ms\n`;
+    menu += `├ Uptime: ${uptimeFormatted}\n`;
+    menu += `├ Version: v${settings.version}\n`;
+    menu += `├ RAM: ${progressBar(systemUsedMemory, totalMemory)}\n`;
+    menu += `╰───────────────╯\n\n`;
+
+    // OWNER COMMANDS
+    menu += `╭─ OWNER ─╮\n`;
+    menu += `├ ${prefix2}setowner\n`;
+    menu += `├ ${prefix2}setprefix\n`;
+    menu += `├ ${prefix2}mode\n`;
+    menu += `├ ${prefix2}restart\n`;
+    menu += `├ ${prefix2}ban\n`;
+    menu += `├ ${prefix2}unban\n`;
+    menu += `├ ${prefix2}sudo\n`;
+    menu += `├ ${prefix2}clearsession\n`;
+    menu += `├ ${prefix2}cleartmp\n`;
+    menu += `╰──────────╯\n\n`;
+
+    // GROUP COMMANDS
+    menu += `╭─ GROUP ─╮\n`;
+    menu += `├ ${prefix2}promote\n`;
+    menu += `├ ${prefix2}demote\n`;
+    menu += `├ ${prefix2}kick\n`;
+    menu += `├ ${prefix2}warn\n`;
+    menu += `├ ${prefix2}mute\n`;
+    menu += `├ ${prefix2}unmute\n`;
+    menu += `├ ${prefix2}antilink\n`;
+    menu += `├ ${prefix2}settings\n`;
+    menu += `├ ${prefix2}groupinfo\n`;
+    menu += `├ ${prefix2}admins\n`;
+    menu += `├ ${prefix2}welcome\n`;
+    menu += `├ ${prefix2}goodbye\n`;
+    menu += `├ ${prefix2}open\n`;
+    menu += `├ ${prefix2}close\n`;
+    menu += `╰──────────╯\n\n`;
 
     // AI COMMANDS
-    menu += `┌───── AI ─────┐\n`;
-    menu += `│ ${prefix2}gpt\n`;
-    menu += `│ ${prefix2}gemini\n`;
-    menu += `│ ${prefix2}imagine\n`;
-    menu += `│ ${prefix2}flux\n`;
-    menu += `└───────────────────────┘\n\n`;
+    menu += `╭─ AI ─╮\n`;
+    menu += `├ ${prefix2}gpt\n`;
+    menu += `├ ${prefix2}gemini\n`;
+    menu += `├ ${prefix2}imagine\n`;
+    menu += `├ ${prefix2}flux\n`;
+    menu += `╰──────╯\n\n`;
 
     // MEDIA DOWNLOAD
-    menu += `┌───── MEDIA ─────┐\n`;
-    menu += `│ ${prefix2}ytmp4\n`;
-    menu += `│ ${prefix2}video\n`;
-    menu += `│ ${prefix2}song\n`;
-    menu += `│ ${prefix2}tiktok\n`;
-    menu += `│ ${prefix2}instagram\n`;
-    menu += `│ ${prefix2}facebook\n`;
-    menu += `│ ${prefix2}play\n`;
-    menu += `│ ${prefix2}spotify\n`;
-    menu += `└───────────────────────┘\n\n`;
-    
-        // DEVELOPER
-    menu += `┌───── DEVELOPER ─────┐\n`;
-    menu += `│ ${prefix2}git\n`;
-    menu += `│ ${prefix2}github\n`;
-    menu += `│ ${prefix2}script\n`;
-    menu += `│ ${prefix2}repo\n`;
-    menu += `└───────────────────────┘`;
+    menu += `╭─ MEDIA ─╮\n`;
+    menu += `├ ${prefix2}ytmp4\n`;
+    menu += `├ ${prefix2}video\n`;
+    menu += `├ ${prefix2}song\n`;
+    menu += `├ ${prefix2}tiktok\n`;
+    menu += `├ ${prefix2}instagram\n`;
+    menu += `├ ${prefix2}facebook\n`;
+    menu += `├ ${prefix2}play\n`;
+    menu += `├ ${prefix2}spotify\n`;
+    menu += `╰─────────╯\n\n`;
 
-    // STICKER MAKER
-    menu += `┌───── STICKER ─────┐\n`;
-    menu += `│ ${prefix2}sticker\n`;
-    menu += `│ ${prefix2}tgsticker\n`;
-    menu += `│ ${prefix2}take\n`;
-    menu += `│ ${prefix2}emojimix\n`;
-    menu += `└───────────────────────┘\n\n`;
+    // STICKER
+    menu += `╭─ STICKER ─╮\n`;
+    menu += `├ ${prefix2}sticker\n`;
+    menu += `├ ${prefix2}tgsticker\n`;
+    menu += `├ ${prefix2}take\n`;
+    menu += `├ ${prefix2}emojimix\n`;
+    menu += `╰───────────╯\n\n`;
 
-    // TOOLS & UTILITIES
-    menu += `┌───── TOOLS ─────┐\n`;
-    menu += `│ ${prefix2}ping\n`;
-    menu += `│ ${prefix2}runtime\n`;
-    menu += `│ ${prefix2}trt\n`;
-    menu += `│ ${prefix2}url\n`;
-    menu += `│ ${prefix2}tourl\n`;
-    menu += `│ ${prefix2}ssweb\n`;
-    menu += `│ ${prefix2}shazam\n`;
-    menu += `│ ${prefix2}tomp3\n`;
-    menu += `└───────────────────────┘\n\n`;
+    // TOOLS
+    menu += `╭─ TOOLS ─╮\n`;
+    menu += `├ ${prefix2}ping\n`;
+    menu += `├ ${prefix2}runtime\n`;
+    menu += `├ ${prefix2}trt\n`;
+    menu += `├ ${prefix2}url\n`;
+    menu += `├ ${prefix2}tourl\n`;
+    menu += `├ ${prefix2}ssweb\n`;
+    menu += `├ ${prefix2}shazam\n`;
+    menu += `├ ${prefix2}tomp3\n`;
+    menu += `╰─────────╯\n\n`;
 
     // GAMES
-    menu += `┌───── GAMES ─────┐\n`;
-    menu += `│ ${prefix2}tictactoe\n`;
-    menu += `│ ${prefix2}hangman\n`;
-    menu += `│ ${prefix2}truth\n`;
-    menu += `│ ${prefix2}dare\n`;
-    menu += `└───────────────────────┘\n\n`;
+    menu += `╭─ GAMES ─╮\n`;
+    menu += `├ ${prefix2}tictactoe\n`;
+    menu += `├ ${prefix2}hangman\n`;
+    menu += `├ ${prefix2}truth\n`;
+    menu += `├ ${prefix2}dare\n`;
+    menu += `╰─────────╯\n\n`;
 
-    // TEXT & IMAGE
-    menu += `┌───── TEXT/IMAGE ─────┐\n`;
-    menu += `│ ${prefix2}neon\n`;
-    menu += `│ ${prefix2}matrix\n`;
-    menu += `│ ${prefix2}fire\n`;
-    menu += `│ ${prefix2}glitch\n`;
-    menu += `│ ${prefix2}tweet\n`;
-    menu += `│ ${prefix2}ytcomment\n`;
-    menu += `└───────────────────────┘\n\n`;
+    // TEXT/IMAGE
+    menu += `╭─ TEXT/IMAGE ─╮\n`;
+    menu += `├ ${prefix2}neon\n`;
+    menu += `├ ${prefix2}matrix\n`;
+    menu += `├ ${prefix2}fire\n`;
+    menu += `├ ${prefix2}glitch\n`;
+    menu += `├ ${prefix2}tweet\n`;
+    menu += `├ ${prefix2}ytcomment\n`;
+    menu += `╰──────────────╯\n\n`;
+
+    // DEVELOPER
+    menu += `╭─ DEVELOPER ─╮\n`;
+    menu += `├ ${prefix2}git\n`;
+    menu += `├ ${prefix2}github\n`;
+    menu += `├ ${prefix2}script\n`;
+    menu += `├ ${prefix2}repo\n`;
+    menu += `╰─────────────╯`;
 
     return menu;
 };
@@ -186,6 +195,7 @@ async function loadThumbnail(thumbnailPath) {
 }
 
 function createFakeContact(message) {
+    const phone = message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0];
     return {
         key: {
             participants: "0@s.whatsapp.net",
@@ -194,8 +204,8 @@ function createFakeContact(message) {
         },
         message: {
             contactMessage: {
-                displayName: "DaveX Menu",
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:DaveX Bot\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Bot\nEND:VCARD`
+                displayName: "DAVE-X",
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Dave-X;;;\nFN:DAVE-X\nTEL;waid=${phone}:${phone}\nEND:VCARD`
             }
         },
         participant: "0@s.whatsapp.net"
@@ -204,7 +214,7 @@ function createFakeContact(message) {
 
 async function sendMenuWithStyle(sock, chatId, message, menulist, menustyle, thumbnailBuffer, pushname) {
     const fkontak = createFakeContact(message);
-    const botname = "DAVE-X BOT";
+    const botname = "DAVE-X";
     const ownername = pushname;
     const tylorkids = thumbnailBuffer;
     const plink = "https://github.com/gifteddevsmd";
@@ -308,12 +318,12 @@ async function helpCommand(sock, chatId, message) {
     console.log('Menu style:', menuStyle);
 
     let data = JSON.parse(fs.readFileSync('./data/messageCount.json'));
-    
+
     const fkontak = createFakeContact(message);
-    
+
     const start = Date.now();
     await sock.sendMessage(chatId, { 
-        text: 'Loading DaveX menu...' 
+        text: 'Loading menu...' 
     }, { quoted: fkontak });
     const end = Date.now();
     const ping = Math.round((end - start) / 2);
@@ -322,7 +332,7 @@ async function helpCommand(sock, chatId, message) {
     const uptimeFormatted = formatTime(uptimeInSeconds);
     const currentMode = data.isPublic ? 'public' : 'private';
     const hostName = detectPlatform();
-    
+
     const menulist = generateMenu(pushname, currentMode, hostName, ping, uptimeFormatted);
 
     const thumbnailFiles = [

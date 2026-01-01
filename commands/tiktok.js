@@ -13,8 +13,8 @@ function createFakeContact(message) {
         },
         message: {
             contactMessage: {
-                displayName: "DAVE-X",
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Dave-X;;;\nFN:DAVE-X\nTEL;waid=${phone}:${phone}\nEND:VCARD`
+                displayName: "JUNE-X",
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:JUNE-X;;;\nFN:JUNE-X\nTEL;waid=${phone}:${phone}\nEND:VCARD`
             }
         },
         participant: "0@s.whatsapp.net"
@@ -23,7 +23,7 @@ function createFakeContact(message) {
 
 async function tiktokCommand(sock, chatId, message) {
     const fkontak = createFakeContact(message);
-    
+
     try {
         // Prevent duplicate processing
         if (processedMessages.has(message.key.id)) return;
@@ -70,30 +70,16 @@ async function tiktokCommand(sock, chatId, message) {
 
             if (data?.status && data.result) {
                 const videoUrl = data.result.no_watermark || data.result.watermark;
-                const caption = data.result.title || "TikTok Video";
-                const TtAudio = data.result.music;
-
+                
                 if (videoUrl) {
-                    // Send video
+                    // Send video with ONLY the small caption
                     await sock.sendMessage(chatId, {
                         video: { url: videoUrl },
                         mimetype: "video/mp4",
-                        caption: `${caption}\n\nBy DAVE-X Bot`
+                        caption: "DAVE-X your tribal thief"  // Only this caption
                     }, { quoted: fkontak });
-
-                    // Send audio if available
-                    if (TtAudio) {
-                        setTimeout(async () => {
-                            try {
-                                await sock.sendMessage(chatId, {
-                                    audio: { url: TtAudio },
-                                    mimetype: "audio/mpeg"
-                                }, { quoted: fkontak });
-                            } catch (audioError) {
-                                console.error('Audio error:', audioError.message);
-                            }
-                        }, 1000);
-                    }
+                    
+                    // DO NOT send audio or any other messages
                     return;
                 }
             }
@@ -107,7 +93,7 @@ async function tiktokCommand(sock, chatId, message) {
 
     } catch (error) {
         console.error('TikTok command error:', error.message);
-        
+
         let errorMessage = "Failed to download video.";
         if (error.message.includes('Invalid TikTok')) {
             errorMessage = "Invalid TikTok link.";

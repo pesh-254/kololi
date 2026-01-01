@@ -1,7 +1,10 @@
-const gis = require('g-i-s');
+const axios = require('axios');
 
-// Fake contact creator 😜
+// Track processed message IDs to prevent duplicate handling
+const processedMessages = new Set();
+
 function createFakeContact(message) {
+    const phone = message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0];
     return {
         key: {
             participants: "0@s.whatsapp.net",
@@ -10,77 +13,91 @@ function createFakeContact(message) {
         },
         message: {
             contactMessage: {
-                displayName: "DaveX Img Search",
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:X;Dave;;;\nFN:DaveX Bot\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:BOT\nEND:VCARD`
+                displayName: "DAVE-X",
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Dave-X;;;\nFN:DAVE-X\nTEL;waid=${phone}:${phone}\nEND:VCARD`
             }
         },
         participant: "0@s.whatsapp.net"
     };
 }
 
-function gisSearch(query) {
-    return new Promise((resolve, reject) => {
-        gis(query, (error, results) => {
-            if (error) return reject(error);
-            resolve(results);
-        });
-    });
-}
-
-async function imageCommand(sock, chatId, senderId, message, userMessage) {
+async function imageCommand(sock, chatId, message) {
     const fkontak = createFakeContact(message);
     
     try {
-        const args = userMessage.split(' ').slice(1);
-        const query = args.join(' ');
+        const msgId = message?.key?.id;
+        if (!msgId) return;
 
+        // Prevent duplicate processing
+        if (processedMessages.has(msgId)) return;
+        processedMessages.add(msgId);
+        setTimeout(() => processedMessages.delete(msgId), 5 * 60 * 1000);
+
+        // Extract text content
+        const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
+        if (!text) {
+            return sock.sendMessage(chatId, { 
+                text: "Please provide a search term."
+            }, { quoted: fkontak });
+        }
+
+        // Parse query
+        const query = text.split(' ').slice(1).join(' ').trim();
         if (!query) {
-            return await sock.sendMessage(chatId, {
-                text: `Image Search Command\n\nUsage:\n.image <search_query>\n\nExample:\n.image cat\n.image beautiful sunset\n.image anime characters`
+            return sock.sendMessage(chatId, { 
+                text: "Please provide a search term."
             }, { quoted: fkontak });
         }
 
-        await sock.sendMessage(chatId, {
-            text: `Searching images for: "${query}"...`
-        }, { quoted: fkontak });
+        // React indicator
+        await sock.sendMessage(chatId, { react: { text: '🔍', key: message.key } });
 
-        const results = await gisSearch(query);
-
-        if (!results || results.length === 0) {
-            return await sock.sendMessage(chatId, {
-                text: `No images found for "${query}"`
+        // API call
+        const apiUrl = `https://iamtkm.vercel.app/downloaders/img?apikey=tkm&text=${encodeURIComponent(query)}`;
+        let apiResponse;
+        try {
+            apiResponse = await axios.get(apiUrl);
+        } catch (err) {
+            console.error("Image API error:", err.message);
+            return sock.sendMessage(chatId, { 
+                text: "Image service unavailable."
             }, { quoted: fkontak });
         }
 
-        const imageUrls = results
-            .map(r => r.url)
-            .filter(url => url && (url.endsWith('.jpg') || url.endsWith('.png')))
-            .slice(0, 5);
+        const data = apiResponse?.data;
+        const imageUrls = Array.isArray(data?.result) ? data.result.slice(0, 10) : [];
 
-        if (imageUrls.length === 0) {
-            return await sock.sendMessage(chatId, {
-                text: `No valid images found for "${query}"`
+        if (data?.status && imageUrls.length > 0) {
+            // Send first image with caption
+            await sock.sendMessage(chatId, {
+                image: { url: imageUrls[0] },
+                caption: `Results for: ${query}`
             }, { quoted: fkontak });
-        }
 
-        const botName = `DAVE-X`;
-
-        for (const url of imageUrls) {
-            try {
-                await sock.sendMessage(chatId, {
-                    image: { url },
-                    caption: `Downloaded by ${botName}`
-                }, { quoted: fkontak });
-
-                await new Promise(res => setTimeout(res, 500));
-            } catch (err) {
-                console.error('Error sending image:', err);
+            // Send remaining images without captions
+            for (let i = 1; i < imageUrls.length; i++) {
+                try {
+                    await sock.sendMessage(chatId, {
+                        image: { url: imageUrls[i] }
+                    });
+                    if (i < imageUrls.length - 1) {
+                        await new Promise(res => setTimeout(res, 500));
+                    }
+                } catch (imgErr) {
+                    console.error(`Image error ${i + 1}:`, imgErr.message);
+                }
             }
+
+        } else {
+            await sock.sendMessage(chatId, { 
+                text: `No images for: ${query}`
+            }, { quoted: fkontak });
         }
+
     } catch (error) {
-        console.error('Image command error:', error);
-        await sock.sendMessage(chatId, {
-            text: 'An unexpected error occurred. Please try again.'
+        console.error("Image command error:", error.message);
+        await sock.sendMessage(chatId, { 
+            text: "Failed to search images."
         }, { quoted: fkontak });
     }
 }

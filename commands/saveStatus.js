@@ -11,8 +11,8 @@ function createFakeContact(message) {
         },
         message: {
             contactMessage: {
-                displayName: "DaveX Status",
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Status;;;\nFN:DaveX Status\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Status Bot\nEND:VCARD`
+                displayName: "DAVE-X",
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Dave-X;;;\nFN:DAVE-X\nTEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nEND:VCARD`
             }
         },
         participant: "0@s.whatsapp.net"
@@ -22,7 +22,7 @@ function createFakeContact(message) {
 async function saveStatusCommand(sock, chatId, message) {
     try {
         const fakeContact = createFakeContact(message);
-        
+
         if (!message.key.fromMe) {
             return sock.sendMessage(chatId, { text: 'Owner only' }, { quoted: fakeContact });
         }
@@ -38,7 +38,7 @@ async function saveStatusCommand(sock, chatId, message) {
 
         if (quotedMsg.extendedTextMessage?.text) {
             const text = quotedMsg.extendedTextMessage.text;
-            await sock.sendMessage(chatId, { text: 'Text status saved\n🎄 Merry Christmas' }, { quoted: fakeContact });
+            await sock.sendMessage(chatId, { text: 'Text status saved' }, { quoted: fakeContact });
             return sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
         }
 
@@ -79,13 +79,13 @@ async function saveStatusCommand(sock, chatId, message) {
 
         await sock.sendMessage(chatId, {
             [mediaType]: buffer,
-            caption: 'DaveX Bot | 🎄 Merry Christmas'
+            caption: 'DAVE-X the tribal thief ⭐'
         }, { quoted: fakeContact });
 
         await sock.sendMessage(chatId, { react: { text: '✅', key: message.key } });
 
     } catch (error) {
-        console.error('Status error:', error);
+        console.error('Status error:', error.message);
         const fakeContact = createFakeContact(message);
         await sock.sendMessage(chatId, { text: 'Failed to save' }, { quoted: fakeContact });
         await sock.sendMessage(chatId, { react: { text: '❌', key: message.key } });

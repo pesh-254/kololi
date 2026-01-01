@@ -13,8 +13,8 @@ function createFakeContact(message) {
         },
         message: {
             contactMessage: {
-                displayName: "JUNE-X",
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:JUNE-X;;;\nFN:JUNE-X\nTEL;waid=${phone}:${phone}\nEND:VCARD`
+                displayName: "DAVE-X",
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:DAVE-X;;;\nFN:JUNE-X\nTEL;waid=${phone}:${phone}\nEND:VCARD`
             }
         },
         participant: "0@s.whatsapp.net"

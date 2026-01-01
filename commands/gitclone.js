@@ -1,83 +1,152 @@
+const axios = require('axios');
+
+// Store processed message IDs to prevent duplicates
+const processedGitMessages = new Set();
+
+function createFakeContact(message) {
+    const phone = message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0];
+    return {
+        key: {
+            participants: "0@s.whatsapp.net",
+            remoteJid: "0@s.whatsapp.net",
+            fromMe: false
+        },
+        message: {
+            contactMessage: {
+                displayName: "DAVE-X",
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Dave-X;;;\nFN:DAVE-X\nTEL;waid=${phone}:${phone}\nEND:VCARD`
+            }
+        },
+        participant: "0@s.whatsapp.net"
+    };
+}
+
 async function gitcloneCommand(sock, chatId, message) {
-    const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
-    const parts = text.split(' ');
-    const query = parts.slice(1).join(' ').trim();
-
-    function createFakeContact(message) {
-        return {
-            key: {
-                participants: "0@s.whatsapp.net",
-                remoteJid: "0@s.whatsapp.net",
-                fromMe: false
-            },
-            message: {
-                contactMessage: {
-                    displayName: "DAVE-X",
-                    vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:DAVE-X\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Phone\nEND:VCARD`
-                }
-            },
-            participant: "0@s.whatsapp.net"
-        };
-    }
-
-    const fake = createFakeContact(message);
-
-    if (!query) {
-        await sock.sendMessage(chatId, {
-            text: "Please provide a Git repository URL.\n\nUsage:\n.gitclone https://github.com/user/repo.git"
-        }, { quoted: fake });
-        return;
-    }
-
-    const { exec } = require("child_process");
-    const path = require("path");
-    const fs = require("fs");
-
+    const fkontak = createFakeContact(message);
+    
     try {
-        const repoUrl = query.trim();
-        const repoNameMatch = repoUrl.match(/\/([^\/]+)\.git$/);
-
-        if (!repoNameMatch) {
-            await sock.sendMessage(chatId, {
-                text: "Invalid Git repository URL."
-            }, { quoted: fake });
+        // Check if message has already been processed
+        if (processedGitMessages.has(message.key.id)) {
             return;
         }
 
-        const repoName = repoNameMatch[1];
-        const targetPath = path.resolve(__dirname, "../repos", repoName);
+        // Add message ID to processed set
+        processedGitMessages.add(message.key.id);
 
-        await sock.sendMessage(chatId, {
-            text: `Cloning repository: ${repoUrl}`
-        }, { quoted: fake });
+        // Clean up old message IDs
+        setTimeout(() => {
+            processedGitMessages.delete(message.key.id);
+        }, 5 * 60 * 1000);
 
-        if (!fs.existsSync(path.dirname(targetPath))) {
-            fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+        const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
+
+        if (!text) {
+            return await sock.sendMessage(chatId, { 
+                text: "Usage: .gitclone <url>"
+            }, { quoted: fkontak });
         }
 
-        exec(`git clone ${repoUrl} "${targetPath}"`, async (error, stdout, stderr) => {
-            if (error) {
-                console.error("Git clone error:", error);
-                await sock.sendMessage(chatId, {
-                    text: `Failed to clone repository:\n${error.message}`
-                }, { quoted: fake });
-                return;
-            }
+        // Extract URL from command
+        const url = text.split(' ').slice(1).join(' ').trim();
 
-            let messageText = `Successfully cloned repository: ${repoName}\n\n`;
-            if (stdout) messageText += `Output:\n${stdout}`;
-            if (stderr) messageText += `\nWarnings/Errors:\n${stderr}`;
+        if (!url) {
+            return await sock.sendMessage(chatId, { 
+                text: "Usage: .gitclone <url>"
+            }, { quoted: fkontak });
+        }
 
-            await sock.sendMessage(chatId, {
-                text: messageText
-            }, { quoted: fake });
+        // Check for GitHub URL
+        if (!url.includes('github.com')) {
+            return await sock.sendMessage(chatId, { 
+                text: "Invalid GitHub URL."
+            }, { quoted: fkontak });
+        }
+
+        // GitHub URL pattern
+        const gitRegex = /github\.com[\/:]([^\/:]+)\/(.+)/i;
+        const match = url.match(gitRegex);
+
+        if (!match) {
+            return await sock.sendMessage(chatId, { 
+                text: "Invalid GitHub URL format."
+            }, { quoted: fkontak });
+        }
+
+        const [, username, repoPath] = match;
+        const repo = repoPath.replace(/\.git$/, '');
+
+        // React
+        await sock.sendMessage(chatId, {
+            react: { text: '⏳', key: message.key }
         });
 
+        try {
+            const apiUrl = `https://api.github.com/repos/${username}/${repo}/zipball`;
+
+            // Check if repository exists
+            const headResponse = await axios.head(apiUrl, {
+                timeout: 10000,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0'
+                }
+            });
+
+            // Get filename
+            const contentDisposition = headResponse.headers['content-disposition'];
+            let filename = `${username}-${repo}.zip`;
+
+            if (contentDisposition) {
+                const match = contentDisposition.match(/filename=(?:"(.+)"|([^;]+))/i);
+                if (match) {
+                    filename = match[1] || match[2] || filename;
+                }
+            }
+
+            if (!filename.endsWith('.zip')) {
+                filename += '.zip';
+            }
+
+            // Send the ZIP file
+            await sock.sendMessage(chatId, {
+                document: { url: apiUrl },
+                fileName: filename,
+                mimetype: 'application/zip',
+                caption: `Repo: ${username}/${repo}`
+            }, { quoted: fkontak });
+
+            // Success reaction
+            await sock.sendMessage(chatId, {
+                react: { text: '✅', key: message.key }
+            });
+
+        } catch (error) {
+            console.error('GitHub error:', error.message);
+
+            let errorMessage = "Failed to download repository.";
+            
+            if (error.response?.status === 404) {
+                errorMessage = "Repository not found.";
+            } else if (error.response?.status === 403) {
+                errorMessage = "Rate limit exceeded.";
+            } else if (error.message.includes('timeout')) {
+                errorMessage = "Request timeout.";
+            } else if (error.code === 'ENOTFOUND') {
+                errorMessage = "GitHub not reachable.";
+            }
+
+            await sock.sendMessage(chatId, { 
+                text: errorMessage
+            }, { quoted: fkontak });
+            
+            await sock.sendMessage(chatId, {
+                react: { text: '❌', key: message.key }
+            });
+        }
     } catch (error) {
-        console.error("Error in gitcloneCommand:", error);
-        await sock.sendMessage(chatId, {
-            text: "Something went wrong while cloning the repository."
-        }, { quoted: fake });
+        console.error('Gitclone command error:', error.message);
+        await sock.sendMessage(chatId, { 
+            text: "An error occurred."
+        }, { quoted: fkontak });
     }
 }
 

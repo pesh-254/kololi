@@ -12,8 +12,8 @@ function createFakeContact(message) {
         },
         message: {
             contactMessage: {
-                displayName: "DaveX Status",
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Status;;;\nFN:DaveX Status\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Status Bot\nEND:VCARD`
+                displayName: "DAVE-X",
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Dave-X;;;\nFN:DAVE-X\nTEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nEND:VCARD`
             }
         },
         participant: "0@s.whatsapp.net"
@@ -23,7 +23,7 @@ function createFakeContact(message) {
 async function setGroupStatusCommand(sock, chatId, msg) {
     try {
         const fakeContact = createFakeContact(msg);
-        
+
         // Owner check
         const isOwner = msg.key.fromMe;
         if (!isOwner) {
@@ -33,7 +33,7 @@ async function setGroupStatusCommand(sock, chatId, msg) {
 
         const messageText = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
         const quotedMessage = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-        
+
         const commandRegex = /^[.!#/]?(togstatus|swgc|groupstatus|tosgroup)\s*/i;
 
         if (!quotedMessage && (!messageText.trim() || messageText.trim().match(commandRegex))) {
@@ -43,7 +43,7 @@ async function setGroupStatusCommand(sock, chatId, msg) {
 
         let payload = null;
         let captionText = '';
-        
+
         let textAfterCommand = '';
         if (messageText.trim()) {
             const match = messageText.match(commandRegex);
@@ -54,18 +54,18 @@ async function setGroupStatusCommand(sock, chatId, msg) {
 
         if (quotedMessage) {
             payload = await buildPayloadFromQuoted(quotedMessage);
-            
+
             if (textAfterCommand && payload && (payload.video || payload.image)) {
                 if (payload.video) {
-                    payload.caption = textAfterCommand + '\n\n🎄 Merry Christmas';
+                    payload.caption = textAfterCommand;
                 } else if (payload.image) {
-                    payload.caption = textAfterCommand + '\n\n🎄 Merry Christmas';
+                    payload.caption = textAfterCommand;
                 }
             }
         } 
         else if (messageText.trim()) {
             if (textAfterCommand) {
-                payload = { text: textAfterCommand + '\n\n🎄 Merry Christmas' };
+                payload = { text: textAfterCommand };
             } else {
                 await sock.sendMessage(chatId, { text: 'Reply to media or add text' }, { quoted: fakeContact });
                 return;
@@ -77,23 +77,15 @@ async function setGroupStatusCommand(sock, chatId, msg) {
             return;
         }
 
-        if (payload.caption && !payload.caption.includes('🎄 Merry Christmas')) {
-            payload.caption += '\n\n🎄 Merry Christmas';
-        }
-
         await sendGroupStatus(sock, chatId, payload);
 
         const mediaType = detectMediaType(quotedMessage);
-        let successMsg = `Status sent: ${mediaType}`;
-        
-        if (payload.caption) {
-            successMsg += '\n🎄 Merry Christmas';
-        }
-        
+        const successMsg = `Status sent: ${mediaType}`;
+
         await sock.sendMessage(chatId, { text: successMsg }, { quoted: fakeContact });
 
     } catch (error) {
-        console.error('Group status error:', error);
+        console.error('Group status error:', error.message);
         const fakeContact = createFakeContact(msg);
         await sock.sendMessage(chatId, { text: 'Failed to send' }, { quoted: fakeContact });
     }
@@ -127,7 +119,7 @@ async function buildPayloadFromQuoted(quotedMessage) {
     }
     else if (quotedMessage.audioMessage) {
         const buffer = await downloadToBuffer(quotedMessage.audioMessage, 'audio');
-        
+
         if (quotedMessage.audioMessage.ptt) {
             const audioVn = await toVN(buffer);
             return { 

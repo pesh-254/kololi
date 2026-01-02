@@ -111,18 +111,6 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `│› ${prefix2}flux\n`;
     menu += `┗▣ \n\n`;
 
-    // MEDIA DOWNLOAD
-    menu += `┏▣ ◈ *MEDIA* ◈\n`;
-    menu += `│› ${prefix2}ytmp4\n`;
-    menu += `│› ${prefix2}video\n`;
-    menu += `│› ${prefix2}song\n`;
-    menu += `│› ${prefix2}tiktok\n`;
-    menu += `│› ${prefix2}instagram\n`;
-    menu += `│› ${prefix2}facebook\n`;
-    menu += `│› ${prefix2}play\n`;
-    menu += `│› ${prefix2}spotify\n`;
-    menu += `┗▣ \n\n`;
-
     // STICKER COMMANDS
     menu += `┏▣ ◈ *STICKER* ◈\n`;
     menu += `│› ${prefix2}sticker\n`;
@@ -143,14 +131,6 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `│› ${prefix2}tomp3\n`;
     menu += `┗▣ \n\n`;
 
-    // GAMES COMMANDS
-    menu += `┏▣ ◈ *GAMES* ◈\n`;
-    menu += `│› ${prefix2}tictactoe\n`;
-    menu += `│› ${prefix2}hangman\n`;
-    menu += `│› ${prefix2}truth\n`;
-    menu += `│› ${prefix2}dare\n`;
-    menu += `┗▣ \n\n`;
-
     // TEXT/IMAGE COMMANDS
     menu += `┏▣ ◈ *TEXT/IMAGE* ◈\n`;
     menu += `│› ${prefix2}neon\n`;
@@ -168,6 +148,26 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `│› ${prefix2}script\n`;
     menu += `│› ${prefix2}repo\n`;
     menu += `┗▣`;
+
+// GAMES COMMANDS
+    menu += `┏▣ ◈ *GAMES* ◈\n`;
+    menu += `│› ${prefix2}tictactoe\n`;
+    menu += `│› ${prefix2}hangman\n`;
+    menu += `│› ${prefix2}truth\n`;
+    menu += `│› ${prefix2}dare\n`;
+    menu += `┗▣ \n\n`;
+
+ // MEDIA DOWNLOAD
+    menu += `┏▣ ◈ *MEDIA* ◈\n`;
+    menu += `│› ${prefix2}ytmp4\n`;
+    menu += `│› ${prefix2}video\n`;
+    menu += `│› ${prefix2}song\n`;
+    menu += `│› ${prefix2}tiktok\n`;
+    menu += `│› ${prefix2}instagram\n`;
+    menu += `│› ${prefix2}facebook\n`;
+    menu += `│› ${prefix2}play\n`;
+    menu += `│› ${prefix2}spotify\n`;
+    menu += `┗▣ \n\n`;
 
     return menu;
 };

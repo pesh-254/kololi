@@ -230,6 +230,7 @@ const aliveCommand = require('./commands/alive');
 const blurCommand = require('./commands/img-blur');
 const githubCommand = require('./commands/github');
 const antibadwordCommand = require('./commands/antibadword');
+const wallpaperCommand = require('./commands/wallpaper');
 const takeCommand = require('./commands/take');
 const { flirtCommand } = require('./commands/flirt');
 const characterCommand = require('./commands/character');
@@ -1363,6 +1364,9 @@ case userMessage === `${prefix}forfeit` ||
                  userMessage.startsWith(`${prefix}emix`):
                 await emojimixCommand(sock, chatId, message);
                 break;
+case userMessage.startsWith(`${prefix}wallpaper`):
+    await wallpaperCommand(sock, chatId, message);
+    break;
 
             case userMessage.startsWith(`${prefix}tg`) ||
                  userMessage.startsWith(`${prefix}tgsticker`):

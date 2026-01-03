@@ -293,6 +293,7 @@ const encryptCommand = require('./commands/encrypt');
 const vcfCommand = require('./commands/vcf');
 const fetchCommand = require('./commands/fetch');
 const { ytplayCommand, ytsongCommand }= require('./commands/ytdl');
+const advanceglowCommand = require('./commands/advanceglow');
 const { chaneljidCommand }= require('./commands/chanel');
 const { connectFourCommand, handleConnectFourMove } = require('./commands/connect4');
 /*━━━━━━━━━━━━━━━━━━━━*/
@@ -968,7 +969,9 @@ case userMessage === `${prefix}status`:
                     await sock.sendMessage(chatId, { text: `Please specify a city, e.g., ${prefix}weather London`, ...channelInfo }, { quoted: message });
                 }
                 break;
-
+case userMessage.startsWith(`${prefix}advanceglow`):
+    await advanceglowCommand(sock, chatId, message);
+    break;
             case userMessage === `${prefix}news`:
                 await newsCommand(sock, chatId);
                 break;

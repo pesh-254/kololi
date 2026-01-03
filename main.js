@@ -293,6 +293,7 @@ const encryptCommand = require('./commands/encrypt');
 const vcfCommand = require('./commands/vcf');
 const fetchCommand = require('./commands/fetch');
 const { ytplayCommand, ytsongCommand }= require('./commands/ytdl');
+const mediafireCommand = require('./commands/mediafire');
 const advanceglowCommand = require('./commands/advanceglow');
 const { chaneljidCommand }= require('./commands/chanel');
 const { connectFourCommand, handleConnectFourMove } = require('./commands/connect4');
@@ -1112,7 +1113,9 @@ case userMessage === `${prefix}forfeit` ||
                  userMessage === `${prefix}image`:
                 await imageCommand(sock, chatId, message, senderId, userMessage);
                 break;
-
+            case userMessage.startsWith(`${prefix}mediafire`):
+    await mediafireCommand(sock, chatId, message);
+    break;
             case userMessage === `${prefix}truth`:
                 await truthCommand(sock, chatId, message);
                 break;

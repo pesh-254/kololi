@@ -270,6 +270,7 @@ const sudoCommand = require('./commands/sudo');
 const { animeCommand } = require('./commands/anime');
 const { piesCommand, piesAlias } = require('./commands/pies');
 const stickercropCommand = require('./commands/stickercrop');
+const movieCommand = require('./commands/movie');
 const updateCommand = require('./commands/update');
 const removebgCommand = require('./commands/removebg');
 const { reminiCommand } = require('./commands/remini');
@@ -1406,6 +1407,9 @@ case userMessage.startsWith(`${prefix}autoviewstatus`):
 case userMessage.startsWith(`${prefix}autostatusview`):
     const autoStatusArgs = userMessage.split(' ').slice(1);
     await autoStatusCommand(sock, chatId, message, autoStatusArgs);
+    break;
+case userMessage.startsWith(`${prefix}movie`):
+    await movieCommand(sock, chatId, message);
     break;
 
             case userMessage.startsWith(`${prefix}metallic`):

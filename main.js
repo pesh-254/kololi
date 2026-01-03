@@ -72,7 +72,6 @@ const { isSudo } = require('./lib/index');
 const isAdmin = require('./lib/isAdmin');
 const { Antilink } = require('./lib/antilink');
 const { tictactoeCommand, handleTicTacToeMove } = require('./commands/tictactoe');
-
 /*━━━━━━━━━━━━━━━━━━━━*/
 // -----Command imports - Handlers-----
 /*━━━━━━━━━━━━━━━━━━━━*/
@@ -192,6 +191,7 @@ const {
 /*━━━━━━━━━━━━━━━━━━━━*/
 // -----Command imports-----
 /*━━━━━━━━━━━━━━━━━━━━*/
+const wormgptCommand = require('./commands/wormgpt');
 const getppCommand = require('./commands/getpp');
 const tagAllCommand = require('./commands/tagall');
 const helpCommand = require('./commands/help');
@@ -289,6 +289,7 @@ const setGroupStatusCommand = require('./commands/setGroupStatus');
 const handleDevReact = require('./commands/devReact');
 const imageCommand = require('./commands/image');
 const gpt4Command = require('./commands/aiGpt4');
+const encryptCommand = require('./commands/encrypt');
 const vcfCommand = require('./commands/vcf');
 const fetchCommand = require('./commands/fetch');
 const { ytplayCommand, ytsongCommand }= require('./commands/ytdl');
@@ -1648,6 +1649,12 @@ case userMessage.startsWith(`${prefix}autostatusview`):
                     await miscCommand(sock, chatId, message, args);
                 }
                 break;
+case userMessage.startsWith(`${prefix}wormgpt`):
+    await wormgptCommand(sock, chatId, message);
+    break;
+case userMessage.startsWith(`${prefix}encrypt`):
+    await encryptCommand(sock, chatId, message);
+    break;
 
             case userMessage.startsWith(`${prefix}simpcard`):
                 {

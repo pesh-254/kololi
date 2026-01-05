@@ -17,14 +17,36 @@ function createFakeContact(message) {
     };
 }
 
+function extractQuotedText(message) {
+    // Get the context info from different message types
+    const contextInfo = 
+        message.message?.extendedTextMessage?.contextInfo ||
+        message.message?.imageMessage?.contextInfo ||
+        message.message?.videoMessage?.contextInfo ||
+        message.message?.documentMessage?.contextInfo ||
+        message.message?.audioMessage?.contextInfo;
+
+    if (!contextInfo?.quotedMessage) return null;
+
+    const quoted = contextInfo.quotedMessage;
+
+    // Extract text from various message types
+    return (
+        quoted.conversation ||
+        quoted.extendedTextMessage?.text ||
+        quoted.imageMessage?.caption ||
+        quoted.videoMessage?.caption ||
+        quoted.documentMessage?.caption ||
+        quoted.documentMessage?.fileName ||
+        null
+    );
+}
+
 async function encryptCommand(sock, chatId, message) {
     const fake = createFakeContact(message);
-    
-    const quotedMessage = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-    
-    if (quotedMessage?.conversation || quotedMessage?.extendedTextMessage?.text) {
-        const code = quotedMessage.conversation || quotedMessage.extendedTextMessage?.text;
+    const code = extractQuotedText(message);
 
+    if (code) {
         try {
             const obfuscationResult = Obfuscator.obfuscate(code, {
                 compact: true,
@@ -38,7 +60,7 @@ async function encryptCommand(sock, chatId, message) {
             });
 
             const encryptedCode = obfuscationResult.getObfuscatedCode();
-            
+
             await sock.sendMessage(chatId, { 
                 text: encryptedCode
             }, { quoted: fake });
@@ -46,12 +68,12 @@ async function encryptCommand(sock, chatId, message) {
         } catch (error) {
             console.error("Encrypt Error:", error);
             await sock.sendMessage(chatId, { 
-                text: "Failed to encrypt code. Invalid JavaScript syntax."
+                text: `❌ Failed to encrypt code.\n\nError: ${error.message}`
             }, { quoted: fake });
         }
     } else {
         await sock.sendMessage(chatId, { 
-            text: "Tag a valid JavaScript code to encrypt!"
+            text: "⚠️ Please reply to a message containing JavaScript code to encrypt!"
         }, { quoted: fake });
     }
 }

@@ -2,41 +2,73 @@ function createFakeContact(message) {
     return {
         key: {
             participants: "0@s.whatsapp.net",
-            remoteJid: "status@broadcast",
-            fromMe: false,
-            id: "DAVE-X"
+            remoteJid: "0@s.whatsapp.net",
+            fromMe: false
         },
         message: {
             contactMessage: {
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:DAVE X\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
+                displayName: "DaveX Group Admin",
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:X;Dave;;;\nFN:DaveX Bot\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:BOT\nEND:VCARD`
             }
         },
         participant: "0@s.whatsapp.net"
     };
 }
 
-async function linkgroupCommand(sock, chatId, message) {
-    const fake = createFakeContact(message);
-    
+async function linkgroupCommand(sock, chatId, senderId, message) {
+    const fkontak = createFakeContact(message);
+
+    // Check if it's a group
     if (!chatId.endsWith('@g.us')) {
-        return sock.sendMessage(chatId, { 
-            text: 'Group command only'
-        }, { quoted: fake });
+        await sock.sendMessage(chatId, { 
+            text: 'This command only works in groups.'
+        }, { quoted: fkontak });
+        return;
     }
 
     try {
+        // Check if user is owner
+        const isOwner = message.key.fromMe;
+        
+        if (!isOwner) {
+            const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
+
+            if (!isBotAdmin) {
+                await sock.sendMessage(chatId, { 
+                    text: 'Bot needs admin permissions to get group link.'
+                }, { quoted: fkontak });
+                return;
+            }
+
+            if (!isSenderAdmin) {
+                await sock.sendMessage(chatId, { 
+                    text: 'This command requires admin privileges.'
+                }, { quoted: fkontak });
+                return;
+            }
+        }
+
+        // Get invite code and group metadata
         const code = await sock.groupInviteCode(chatId);
         const metadata = await sock.groupMetadata(chatId);
-        
+
+        // Send the link
         await sock.sendMessage(chatId, { 
-            text: `https://chat.whatsapp.com/${code}\n\nGroup: ${metadata.subject}\n- DAVE X`
-        }, { quoted: fake });
+            text: `🔗 *Group Invite Link*\n\nhttps://chat.whatsapp.com/${code}\n\n📌 Group: ${metadata.subject}\n👥 Members: ${metadata.participants.length}\n\n- DAVE X`
+        }, { quoted: fkontak });
 
     } catch (error) {
-        console.error('Linkgroup Error:', error);
+        console.error('Error in linkgroup command:', error);
+        
+        let errorMsg = 'Failed to get group link.';
+        
+        if (error.message?.includes('not-authorized') || error.message?.includes('forbidden')) {
+            errorMsg = 'Bot needs admin permissions to get group link.';
+        }
+        
         await sock.sendMessage(chatId, { 
-            text: 'Failed to get group link'
-        }, { quoted: fake });
+            text: errorMsg
+        }, { quoted: fkontak });
     }
 }
 

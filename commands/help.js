@@ -60,7 +60,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
 
     let menu = ''; // Start with empty string instead of quotes
 
-    // Header with thin frame
+        // Header with thin frame
     menu += `┏▣ ◈ *DAVE-X* ◈\n`;
     menu += `┃ *Owner* : ${newOwner}\n`;
     menu += `┃ *Prefix* : [ ${prefix2} ]\n`;
@@ -83,6 +83,13 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `│› ${prefix2}sudo\n`;
     menu += `│› ${prefix2}clearsession\n`;
     menu += `│› ${prefix2}cleartmp\n`;
+    menu += `│› ${prefix2}broadcast\n`;
+    menu += `│› ${prefix2}creategroup\n`;
+    menu += `│› ${prefix2}tostatus\n`;
+    menu += `│› ${prefix2}autostatus\n`;
+    menu += `│› ${prefix2}pmblocker\n`;
+    menu += `│› ${prefix2}areact\n`;
+    menu += `│› ${prefix2}update\n`;
     menu += `┗▣ \n\n`;
 
     // GROUP COMMANDS
@@ -101,6 +108,18 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `│› ${prefix2}goodbye\n`;
     menu += `│› ${prefix2}open\n`;
     menu += `│› ${prefix2}close\n`;
+    menu += `│› ${prefix2}linkgroup\n`;
+    menu += `│› ${prefix2}reset\n`;
+    menu += `│› ${prefix2}leave\n`;
+    menu += `│› ${prefix2}tagall\n`;
+    menu += `│› ${prefix2}tagnotadmin\n`;
+    menu += `│› ${prefix2}hidetag\n`;
+    menu += `│› ${prefix2}antibadword\n`;
+    menu += `│› ${prefix2}antitag\n`;
+    menu += `│› ${prefix2}antidelete\n`;
+    menu += `│› ${prefix2}anticall\n`;
+    menu += `│› ${prefix2}mention\n`;
+    menu += `│› ${prefix2}chatbot\n`;
     menu += `┗▣ \n\n`;
 
     // AI COMMANDS
@@ -109,6 +128,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `│› ${prefix2}gemini\n`;
     menu += `│› ${prefix2}imagine\n`;
     menu += `│› ${prefix2}flux\n`;
+    menu += `│› ${prefix2}wormgpt\n`;
     menu += `┗▣ \n\n`;
 
     // STICKER COMMANDS
@@ -117,6 +137,11 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `│› ${prefix2}tgsticker\n`;
     menu += `│› ${prefix2}take\n`;
     menu += `│› ${prefix2}emojimix\n`;
+    menu += `│› ${prefix2}stickertelegram\n`;
+    menu += `│› ${prefix2}sticker\n`;
+    menu += `│› ${prefix2}simage\n`;
+    menu += `│› ${prefix2}attp\n`;
+    menu += `│› ${prefix2}stickercrop\n`;
     menu += `┗▣ \n\n`;
 
     // TOOLS COMMANDS
@@ -129,6 +154,26 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `│› ${prefix2}ssweb\n`;
     menu += `│› ${prefix2}shazam\n`;
     menu += `│› ${prefix2}tomp3\n`;
+    menu += `│› ${prefix2}weather\n`;
+    menu += `│› ${prefix2}getpp\n`;
+    menu += `│› ${prefix2}news\n`;
+    menu += `│› ${prefix2}movie\n`;
+    menu += `│› ${prefix2}quote\n`;
+    menu += `│› ${prefix2}fact\n`;
+    menu += `│› ${prefix2}joke\n`;
+    menu += `│› ${prefix2}encrypt\n`;
+    menu += `│› ${prefix2}mediafire\n`;
+    menu += `│› ${prefix2}gitclone\n`;
+    menu += `│› ${prefix2}yts\n`;
+    menu += `│› ${prefix2}fetch\n`;
+    menu += `│› ${prefix2}lyrics\n`;
+    menu += `│› ${prefix2}apk\n`;
+    menu += `│› ${prefix2}removbg\n`;
+    menu += `│› ${prefix2}remini\n`;
+    menu += `│› ${prefix2}sora\n`;
+    menu += `│› ${prefix2}vcf\n`;
+    menu += `│› ${prefix2}save\n`;
+    menu += `│› ${prefix2}setgstatus\n`;
     menu += `┗▣ \n\n`;
 
     // TEXT/IMAGE COMMANDS
@@ -139,25 +184,75 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `│› ${prefix2}glitch\n`;
     menu += `│› ${prefix2}tweet\n`;
     menu += `│› ${prefix2}ytcomment\n`;
+    menu += `│› ${prefix2}advanceglow\n`;
+    menu += `│› ${prefix2}wallpaper\n`;
+    menu += `│› ${prefix2}metallic\n`;
+    menu += `│› ${prefix2}ice\n`;
+    menu += `│› ${prefix2}snow\n`;
+    menu += `│› ${prefix2}impressive\n`;
+    menu += `│› ${prefix2}light\n`;
+    menu += `│› ${prefix2}purple\n`;
+    menu += `│› ${prefix2}thunder\n`;
+    menu += `│› ${prefix2}leaves\n`;
+    menu += `│› ${prefix2}1917\n`;
+    menu += `│› ${prefix2}arena\n`;
+    menu += `│› ${prefix2}hacker\n`;
+    menu += `│› ${prefix2}sand\n`;
+    menu += `│› ${prefix2}blackpink\n`;
+    menu += `│› ${prefix2}comrade\n`;
+    menu += `│› ${prefix2}gay\n`;
+    menu += `│› ${prefix2}glass\n`;
+    menu += `│› ${prefix2}jail\n`;
+    menu += `│› ${prefix2}passed\n`;
+    menu += `│› ${prefix2}triggered\n`;
+    menu += `│› ${prefix2}heart\n`;
+    menu += `│› ${prefix2}horny\n`;
+    menu += `│› ${prefix2}circle\n`;
+    menu += `│› ${prefix2}lgbtq\n`;
+    menu += `│› ${prefix2}lolice\n`;
+    menu += `│› ${prefix2}simpcard\n`;
+    menu += `│› ${prefix2}namecard\n`;
+    menu += `│› ${prefix2}oogway\n`;
+    menu += `│› ${prefix2}oogway2\n`;
+    menu += `│› ${prefix2}blur\n`;
+    menu += `│› ${prefix2}wasted\n`;
+    menu += `│› ${prefix2}character\n`;
     menu += `┗▣ \n\n`;
 
-    // DEVELOPER COMMANDS
-    menu += `┏▣ ◈ *DEVELOPER* ◈\n`;
-    menu += `│› ${prefix2}git\n`;
-    menu += `│› ${prefix2}github\n`;
-    menu += `│› ${prefix2}script\n`;
-    menu += `│› ${prefix2}repo\n`;
-    menu += `┗▣`;
-
-// GAMES COMMANDS
+    // GAMES COMMANDS
     menu += `┏▣ ◈ *GAMES* ◈\n`;
     menu += `│› ${prefix2}tictactoe\n`;
     menu += `│› ${prefix2}hangman\n`;
     menu += `│› ${prefix2}truth\n`;
     menu += `│› ${prefix2}dare\n`;
+    menu += `│› ${prefix2}connect4\n`;
+    menu += `│› ${prefix2}trivia\n`;
+    menu += `│› ${prefix2}ship\n`;
+    menu += `│› ${prefix2}8ball\n`;
+    menu += `│› ${prefix2}compliment\n`;
+    menu += `│› ${prefix2}insult\n`;
+    menu += `│› ${prefix2}flirt\n`;
+    menu += `│› ${prefix2}pies\n`;
+    menu += `│› ${prefix2}china\n`;
+    menu += `│› ${prefix2}indonesia\n`;
+    menu += `│› ${prefix2}japan\n`;
+    menu += `│› ${prefix2}korea\n`;
+    menu += `│› ${prefix2}hijab\n`;
+    menu += `│› ${prefix2}animu\n`;
+    menu += `│› ${prefix2}nom\n`;
+    menu += `│› ${prefix2}poke\n`;
+    menu += `│› ${prefix2}cry\n`;
+    menu += `│› ${prefix2}hug\n`;
+    menu += `│› ${prefix2}pat\n`;
+    menu += `│› ${prefix2}kiss\n`;
+    menu += `│› ${prefix2}wink\n`;
+    menu += `│› ${prefix2}facepalm\n`;
+    menu += `│› ${prefix2}loli\n`;
+    menu += `│› ${prefix2}simp\n`;
+    menu += `│› ${prefix2}stupid\n`;
     menu += `┗▣ \n\n`;
 
- // MEDIA DOWNLOAD
+    // MEDIA DOWNLOAD
     menu += `┏▣ ◈ *MEDIA* ◈\n`;
     menu += `│› ${prefix2}ytmp4\n`;
     menu += `│› ${prefix2}video\n`;
@@ -167,7 +262,20 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `│› ${prefix2}facebook\n`;
     menu += `│› ${prefix2}play\n`;
     menu += `│› ${prefix2}spotify\n`;
+    menu += `│› ${prefix2}ytplay\n`;
+    menu += `│› ${prefix2}ytsong\n`;
+    menu += `│› ${prefix2}igs\n`;
+    menu += `│› ${prefix2}mediafire\n`;
     menu += `┗▣ \n\n`;
+
+    // DEVELOPER COMMANDS
+    menu += `┏▣ ◈ *DEVELOPER* ◈\n`;
+    menu += `│› ${prefix2}git\n`;
+    menu += `│› ${prefix2}github\n`;
+    menu += `│› ${prefix2}script\n`;
+    menu += `│› ${prefix2}repo\n`;
+    menu += `│› ${prefix2}menuconfig\n`;
+    menu += `┗▣`;
 
     return menu;
 };

@@ -1,4 +1,3 @@
-
 function createFakeContact(message) {
     return {
         key: {
@@ -47,58 +46,39 @@ async function tostatusCommand(sock, chatId, message) {
 
     try {
         const msgType = Object.keys(quotedMessage)[0];
+        let statusMessage = null;
 
         if (msgType === 'imageMessage') {
-            // Download the image from the quoted message
+            // Download the image
             const buffer = await sock.downloadMediaMessage({
                 message: quotedMessage
             });
             
-            await sock.sendMessage('status@broadcast', {
+            statusMessage = {
                 image: buffer,
                 caption: quotedMessage.imageMessage?.caption || ""
-            });
-            
-            await sock.sendMessage(chatId, { 
-                text: '✅ Image posted to status successfully!'
-            }, { quoted: fake });
+            };
 
         } else if (msgType === 'videoMessage') {
-            // Download the video from the quoted message
+            // Download the video
             const buffer = await sock.downloadMediaMessage({
                 message: quotedMessage
             });
             
-            await sock.sendMessage('status@broadcast', {
+            statusMessage = {
                 video: buffer,
                 caption: quotedMessage.videoMessage?.caption || ""
-            });
-            
-            await sock.sendMessage(chatId, { 
-                text: '✅ Video posted to status successfully!'
-            }, { quoted: fake });
+            };
 
         } else if (msgType === 'conversation') {
-            const statusText = quotedMessage.conversation;
-            
-            await sock.sendMessage('status@broadcast', {
-                text: statusText
-            });
-            
-            await sock.sendMessage(chatId, { 
-                text: '✅ Text posted to status successfully!'
-            }, { quoted: fake });
+            statusMessage = {
+                text: quotedMessage.conversation
+            };
 
         } else if (msgType === 'extendedTextMessage') {
-            const statusText = quotedMessage.extendedTextMessage?.text || "";
-            
-            await sock.sendMessage('status@broadcast', {
-                text: statusText
-            });
-            
-            await sock.sendMessage(chatId, { 
-                text: '✅ Text posted to status successfully!'
-            }, { quoted: fake });
+            statusMessage = {
+                text: quotedMessage.extendedTextMessage?.text || ""
+            };
 
         } else if (msgType === 'stickerMessage') {
             return sock.sendMessage(chatId, { 
@@ -111,8 +91,26 @@ async function tostatusCommand(sock, chatId, message) {
             }, { quoted: fake });
         }
 
+        // Post to status using the correct method
+        if (statusMessage) {
+            const result = await sock.sendMessage('status@broadcast', statusMessage, {
+                backgroundColor: '#000000',
+                statusJidList: [] // Empty = broadcast to all contacts
+            });
+
+            // Wait a moment for the status to post
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            await sock.sendMessage(chatId, { 
+                text: `✅ Successfully posted to status!`
+            }, { quoted: fake });
+        }
+
     } catch (error) {
         console.error('Tostatus Error:', error);
+        console.error('Error details:', error.message);
+        console.error('Error stack:', error.stack);
+        
         await sock.sendMessage(chatId, { 
             text: `❌ Failed to post status\n\nError: ${error.message}`
         }, { quoted: fake });

@@ -1,4 +1,8 @@
-const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+const { downloadContentFromMessage, generateWAMessageContent, generateWAMessageFromContent } = require('@whiskeysockets/baileys');
+const crypto = require('crypto');
+const ffmpeg = require('fluent-ffmpeg');
+const { PassThrough } = require('stream');
+
 
 function createFakeContact(message) {
     return {
@@ -28,6 +32,15 @@ function getContextInfo(message) {
     );
 }
 
+async function downloadToBuffer(message, type) {
+    const stream = await downloadContentFromMessage(message, type);
+    let buffer = Buffer.from([]);
+    for await (const chunk of stream) {
+        buffer = Buffer.concat([buffer, chunk]);
+    }
+    return buffer;
+}
+
 async function tostatusCommand(sock, chatId, message) {
     const fake = createFakeContact(message);
 
@@ -51,16 +64,7 @@ async function tostatusCommand(sock, chatId, message) {
         let statusMessage = null;
 
         if (msgType === 'imageMessage') {
-            // Download image using the correct method
-            const buffer = await downloadMediaMessage(
-                { message: quotedMessage },
-                'buffer',
-                {},
-                { 
-                    logger: console,
-                    reuploadRequest: sock.updateMediaMessage
-                }
-            );
+            const buffer = await downloadToBuffer(quotedMessage.imageMessage, 'image');
             
             statusMessage = {
                 image: buffer,
@@ -68,20 +72,12 @@ async function tostatusCommand(sock, chatId, message) {
             };
 
         } else if (msgType === 'videoMessage') {
-            // Download video using the correct method
-            const buffer = await downloadMediaMessage(
-                { message: quotedMessage },
-                'buffer',
-                {},
-                { 
-                    logger: console,
-                    reuploadRequest: sock.updateMediaMessage
-                }
-            );
+            const buffer = await downloadToBuffer(quotedMessage.videoMessage, 'video');
             
             statusMessage = {
                 video: buffer,
-                caption: quotedMessage.videoMessage?.caption || ""
+                caption: quotedMessage.videoMessage?.caption || "",
+                gifPlayback: quotedMessage.videoMessage?.gifPlayback || false
             };
 
         } else if (msgType === 'conversation') {
@@ -121,6 +117,7 @@ async function tostatusCommand(sock, chatId, message) {
 
     } catch (error) {
         console.error('Tostatus Error:', error);
+        console.error('Error message:', error.message);
         
         await sock.sendMessage(chatId, { 
             text: `❌ Failed to post status\n\nError: ${error.message}`

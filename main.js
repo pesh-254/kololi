@@ -219,6 +219,10 @@ const kickCommand = require('./commands/kick');
 const simageCommand = require('./commands/simage');
 const attpCommand = require('./commands/attp');
 const { complimentCommand } = require('./commands/compliment');
+const tostatusCommand = require('./commands/tostatus');
+const broadcastCommand = require('./commands/broadcast');
+const creategroupCommand = require('./commands/creategroup');
+const linkgroupCommand = require('./commands/linkgroup');
 const { insultCommand } = require('./commands/insult');
 const { eightBallCommand } = require('./commands/eightball');
 const { lyricsCommand } = require('./commands/lyrics');
@@ -543,6 +547,7 @@ if (/^[1-9]$/.test(userMessage)) {
             `${prefix}promote`,
             `${prefix}demote`,
             `${prefix}kick`,
+            `${prefix}linkgroup`,
             `${prefix}tagall`, 
             `${prefix}tagnotadmin`, 
             `${prefix}hidetag`,
@@ -561,6 +566,7 @@ if (/^[1-9]$/.test(userMessage)) {
             `${prefix}antidelete`, 
             `${prefix}cleartmp`, 
             `${prefix}setpp`, 
+            `${prefix}tostatus`,
             `${prefix}clearsession`, 
             `${prefix}areact`, 
             `${prefix}autoreact`, 
@@ -1138,6 +1144,25 @@ case userMessage === `${prefix}forfeit` ||
                 const mentionedJidListDemote = message.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
                 await demoteCommand(sock, chatId, mentionedJidListDemote, message);
                 break;
+case userMessage.startsWith(`${prefix}tostatus`):
+case userMessage.startsWith(`${prefix}tos`):
+    await tostatusCommand(sock, chatId, message);
+    break;
+
+case userMessage.startsWith(`${prefix}broadcast`):
+case userMessage.startsWith(`${prefix}bc`):
+    await broadcastCommand(sock, chatId, message);
+    break;
+
+case userMessage.startsWith(`${prefix}creategroup`):
+case userMessage.startsWith(`${prefix}creategc`):
+    await creategroupCommand(sock, chatId, message);
+    break;
+
+case userMessage.startsWith(`${prefix}linkgroup`):
+case userMessage.startsWith(`${prefix}linkgc`):
+    await linkgroupCommand(sock, chatId, message);
+    break;
 
             case userMessage === `${prefix}ping` ||
                  userMessage === `${prefix}dave`:

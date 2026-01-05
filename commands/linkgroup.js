@@ -15,7 +15,7 @@ function createFakeContact(message) {
     };
 }
 
-async function linkgroupCommand(sock, chatId, senderId, message) {
+async function linkgroupCommand(sock, chatId, message) {
     const fkontak = createFakeContact(message);
 
     // Check if it's a group
@@ -27,6 +27,9 @@ async function linkgroupCommand(sock, chatId, senderId, message) {
     }
 
     try {
+        // Get sender ID from message
+        const senderId = message.key.participant || message.key.remoteJid;
+        
         // Check if user is owner
         const isOwner = message.key.fromMe;
         

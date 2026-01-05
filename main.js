@@ -388,11 +388,11 @@ function createFakeContact(message) {
             participants: "0@s.whatsapp.net",
             remoteJid: "status@broadcast",
             fromMe: false,
-            id: "JUNE-X"
+            id: "DAVE-X"
         },
         message: {
             contactMessage: {
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:JUNE MD\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN: DAVE X\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
             }
         },
         participant: "0@s.whatsapp.net"
@@ -470,7 +470,7 @@ const fake = createFakeContact(message);
             // Only respond occasionally to avoid spam
             if (Math.random() < 0.1) {
                 await sock.sendMessage(chatId, {
-                    text: '❌ You are banned from using the bot. Contact an admin to get unbanned.',
+                    text: 'You are banned from using the bot. Contact an admin to get unbanned.',
                     ...channelInfo
                 });
             }
@@ -1387,7 +1387,7 @@ case userMessage.startsWith(`${prefix}wallpaper`):
                 await kickAllCommand(sock, chatId, message);
                 break;
 
-           case userMessage === `${prefix}open`:
+   
 case userMessage === `${prefix}tovv`:
 case userMessage === `${prefix}vv`:
 case userMessage === `${prefix}viewonce`:

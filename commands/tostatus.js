@@ -1,3 +1,4 @@
+
 function createFakeContact(message) {
     return {
         key: {
@@ -15,62 +16,105 @@ function createFakeContact(message) {
     };
 }
 
+function getContextInfo(message) {
+    return (
+        message.message?.extendedTextMessage?.contextInfo ||
+        message.message?.imageMessage?.contextInfo ||
+        message.message?.videoMessage?.contextInfo ||
+        message.message?.stickerMessage?.contextInfo ||
+        message.message?.documentMessage?.contextInfo ||
+        message.message?.audioMessage?.contextInfo
+    );
+}
+
 async function tostatusCommand(sock, chatId, message) {
     const fake = createFakeContact(message);
-    
+
     if (!message.key.fromMe) {
         return sock.sendMessage(chatId, { 
-            text: 'Owner only command'
+            text: '⚠️ Owner only command'
         }, { quoted: fake });
     }
 
-    const quotedMessage = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-    
+    const contextInfo = getContextInfo(message);
+    const quotedMessage = contextInfo?.quotedMessage;
+
     if (!quotedMessage) {
         return sock.sendMessage(chatId, { 
-            text: 'Reply to an image/video/text'
+            text: '⚠️ Reply to an image/video/text to post to status'
         }, { quoted: fake });
     }
 
     try {
         const msgType = Object.keys(quotedMessage)[0];
-        
+
         if (msgType === 'imageMessage') {
-            const buffer = await sock.downloadMediaMessage(quotedMessage);
+            // Download the image from the quoted message
+            const buffer = await sock.downloadMediaMessage({
+                message: quotedMessage
+            });
+            
             await sock.sendMessage('status@broadcast', {
                 image: buffer,
                 caption: quotedMessage.imageMessage?.caption || ""
             });
+            
             await sock.sendMessage(chatId, { 
-                text: 'Image posted to status'
+                text: '✅ Image posted to status successfully!'
             }, { quoted: fake });
+
         } else if (msgType === 'videoMessage') {
-            const buffer = await sock.downloadMediaMessage(quotedMessage);
+            // Download the video from the quoted message
+            const buffer = await sock.downloadMediaMessage({
+                message: quotedMessage
+            });
+            
             await sock.sendMessage('status@broadcast', {
                 video: buffer,
                 caption: quotedMessage.videoMessage?.caption || ""
             });
+            
             await sock.sendMessage(chatId, { 
-                text: 'Video posted to status'
+                text: '✅ Video posted to status successfully!'
             }, { quoted: fake });
-        } else if (msgType === 'extendedTextMessage' || msgType === 'conversation') {
-            const statusText = quotedMessage.extendedTextMessage?.text || quotedMessage.conversation || "";
+
+        } else if (msgType === 'conversation') {
+            const statusText = quotedMessage.conversation;
+            
             await sock.sendMessage('status@broadcast', {
                 text: statusText
             });
+            
             await sock.sendMessage(chatId, { 
-                text: 'Text posted to status'
+                text: '✅ Text posted to status successfully!'
             }, { quoted: fake });
+
+        } else if (msgType === 'extendedTextMessage') {
+            const statusText = quotedMessage.extendedTextMessage?.text || "";
+            
+            await sock.sendMessage('status@broadcast', {
+                text: statusText
+            });
+            
+            await sock.sendMessage(chatId, { 
+                text: '✅ Text posted to status successfully!'
+            }, { quoted: fake });
+
+        } else if (msgType === 'stickerMessage') {
+            return sock.sendMessage(chatId, { 
+                text: '⚠️ Stickers cannot be posted to status. Reply to image, video, or text instead.'
+            }, { quoted: fake });
+
         } else {
             return sock.sendMessage(chatId, { 
-                text: 'Reply to image, video, or text'
+                text: `⚠️ Unsupported message type: ${msgType}\n\nPlease reply to image, video, or text.`
             }, { quoted: fake });
         }
-        
+
     } catch (error) {
         console.error('Tostatus Error:', error);
         await sock.sendMessage(chatId, { 
-            text: 'Failed to post status'
+            text: `❌ Failed to post status\n\nError: ${error.message}`
         }, { quoted: fake });
     }
 }

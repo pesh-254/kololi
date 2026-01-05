@@ -1,3 +1,5 @@
+const { downloadMediaMessage } = require('@whiskeysockets/baileys');
+
 function createFakeContact(message) {
     return {
         key: {
@@ -49,10 +51,16 @@ async function tostatusCommand(sock, chatId, message) {
         let statusMessage = null;
 
         if (msgType === 'imageMessage') {
-            // Download the image
-            const buffer = await sock.downloadMediaMessage({
-                message: quotedMessage
-            });
+            // Download image using the correct method
+            const buffer = await downloadMediaMessage(
+                { message: quotedMessage },
+                'buffer',
+                {},
+                { 
+                    logger: console,
+                    reuploadRequest: sock.updateMediaMessage
+                }
+            );
             
             statusMessage = {
                 image: buffer,
@@ -60,10 +68,16 @@ async function tostatusCommand(sock, chatId, message) {
             };
 
         } else if (msgType === 'videoMessage') {
-            // Download the video
-            const buffer = await sock.downloadMediaMessage({
-                message: quotedMessage
-            });
+            // Download video using the correct method
+            const buffer = await downloadMediaMessage(
+                { message: quotedMessage },
+                'buffer',
+                {},
+                { 
+                    logger: console,
+                    reuploadRequest: sock.updateMediaMessage
+                }
+            );
             
             statusMessage = {
                 video: buffer,
@@ -91,14 +105,13 @@ async function tostatusCommand(sock, chatId, message) {
             }, { quoted: fake });
         }
 
-        // Post to status using the correct method
+        // Post to status
         if (statusMessage) {
-            const result = await sock.sendMessage('status@broadcast', statusMessage, {
+            await sock.sendMessage('status@broadcast', statusMessage, {
                 backgroundColor: '#000000',
-                statusJidList: [] // Empty = broadcast to all contacts
+                statusJidList: []
             });
 
-            // Wait a moment for the status to post
             await new Promise(resolve => setTimeout(resolve, 1000));
 
             await sock.sendMessage(chatId, { 
@@ -108,8 +121,6 @@ async function tostatusCommand(sock, chatId, message) {
 
     } catch (error) {
         console.error('Tostatus Error:', error);
-        console.error('Error details:', error.message);
-        console.error('Error stack:', error.stack);
         
         await sock.sendMessage(chatId, { 
             text: `❌ Failed to post status\n\nError: ${error.message}`

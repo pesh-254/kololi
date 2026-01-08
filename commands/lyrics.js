@@ -19,26 +19,32 @@ function createFakeContact(message) {
 
 async function lyricsCommand(sock, chatId, songTitle, message) {
     const fake = createFakeContact(message);
-    
+
     if (!songTitle) {
         return sock.sendMessage(chatId, { 
-            text: 'Example: .lyrics Shape one call away\nProvide song name'
+            text: 'Example: .lyrics shape of you\nProvide song name'
         }, { quoted: fake });
     }
 
     try {
-        const res = await axios.get(`https://apiskeith.vercel.app/search/lyrics2?query=${encodeURIComponent(songTitle)}`);
+        const apiUrl = `https://meta-api.zone.id/search/lyricsv2?title=${encodeURIComponent(songTitle)}`;
+        const res = await axios.get(apiUrl);
         const data = res.data;
 
-        if (!data.status || !data.result) {
+        if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
             return sock.sendMessage(chatId, { text: "Lyrics not found" }, { quoted: fake });
         }
 
-        await sock.sendMessage(chatId, { text: data.result }, { quoted: fake });
+        const firstResult = data.data[0];
+        const lyrics = firstResult.plainLyrics || "No lyrics available";
+        
+        const responseText = `🎵 *${firstResult.trackName || songTitle}*\n👤 *Artist:* ${firstResult.artistName || 'Unknown'}\n💿 *Album:* ${firstResult.albumName || 'Unknown'}\n⏱️ *Duration:* ${firstResult.duration || 0}s\n\n📜 *Lyrics:*\n\n${lyrics}`;
+
+        await sock.sendMessage(chatId, { text: responseText }, { quoted: fake });
     } catch (error) {
         console.error('Lyrics Error:', error);
         await sock.sendMessage(chatId, { 
-            text: "Failed to fetch lyrics"
+            text: "Failed to fetch lyrics. Try again."
         }, { quoted: fake });
     }
 }

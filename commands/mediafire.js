@@ -1,5 +1,10 @@
 const axios = require('axios');
-const cheerio = require('cheerio');
+
+const LYRICS_API = {
+    baseURL: "https://iamtkm.vercel.app",
+    endpoint: "/search/lyrics",
+    apiKey: "tkm"
+};
 
 function createFakeContact(message) {
     return {
@@ -18,70 +23,103 @@ function createFakeContact(message) {
     };
 }
 
-async function MediaFire(url, options) {
+async function searchLyrics(query) {
     try {
-        let mime;
-        options = options ? options : {};
-        const res = await axios.get(url, options);
-        const $ = cheerio.load(res.data);
-        const hasil = [];
-        const link = $('a#downloadButton').attr('href');
-        const size = $('a#downloadButton').text().replace('Download', '').replace('(', '').replace(')', '').replace('\n', '').replace('\n', '').replace('                         ', '');
-        const seplit = link.split('/');
-        const nama = seplit[5];
-        mime = nama.split('.');
-        mime = mime[1];
-        hasil.push({ nama, mime, size, link });
-        return hasil;
+        const url = `${LYRICS_API.baseURL}${LYRICS_API.endpoint}?apikey=${LYRICS_API.apiKey}&q=${encodeURIComponent(query)}`;
+        const res = await axios.get(url, { timeout: 10000 });
+
+        if (res.data.status && res.data.data) {
+            return res.data.data;
+        }
+        return [];
     } catch (err) {
-        return err;
+        console.error('Lyrics search error:', err.message);
+        return [];
     }
 }
 
-async function mediafireCommand(sock, chatId, message) {
+async function getLyricsText(lyricsUrl) {
+    try {
+        const res = await axios.get(lyricsUrl, { timeout: 15000 });
+        return res.data.lyrics || res.data.result || "Lyrics not available";
+    } catch (err) {
+        console.error('Fetch lyrics error:', err.message);
+        return "Could not fetch lyrics";
+    }
+}
+
+function formatResultsList(results, query) {
+    let message = `🎵 *Multiple Results Found*\n\nSearch: "${query}"\n\n`;
+
+    results.slice(0, 10).forEach((song, index) => {
+        message += `${index + 1}. ${song.songTitle}\n   👤 ${song.artist.replace('·', '').trim()}\n\n`;
+    });
+
+    message += `\nTo get lyrics, search more specifically\nExample: .lyrics ${results[0].songTitle}`;
+    return message;
+}
+
+function formatLyrics(song, lyrics) {
+    return `🎵 *${song.songTitle}*\n` +
+           `👤 *Artist:* ${song.artist.replace('·', '').trim()}\n\n` +
+           `${'─'.repeat(30)}\n\n` +
+           lyrics.substring(0, 3000) +
+           `\n\n- DAVE X`;
+}
+
+async function lyricsCommand(sock, chatId, message) {
     const fake = createFakeContact(message);
-    
+
     const text = message.message?.conversation || 
                  message.message?.extendedTextMessage?.text || '';
-    
-    const url = text.split(' ').slice(1).join(' ').trim();
-    
-    if (!url) {
-        return sock.sendMessage(chatId, { 
-            text: "Provide mediafire link after .mediafire"
-        }, { quoted: fake });
-    }
 
-    if (!url.includes('mediafire.com')) {
+    const query = text.split(' ').slice(1).join(' ').trim();
+
+    if (!query) {
         return sock.sendMessage(chatId, { 
-            text: "That's not a mediafire link"
+            text: "Provide song name after .lyrics\n\nExample: .lyrics suzana by bien"
         }, { quoted: fake });
     }
 
     try {
-        const fileInfo = await MediaFire(url);
+        await sock.sendMessage(chatId, { 
+            text: `🔍 Searching lyrics for: "${query}"...`
+        }, { quoted: fake });
 
-        if (!fileInfo || !fileInfo.length) {
+        const results = await searchLyrics(query);
+
+        if (!results || results.length === 0) {
             return sock.sendMessage(chatId, { 
-                text: "File no longer available on MediaFire"
+                text: `❌ No lyrics found for: ${query}\n\nTry:\n- Different spelling\n- Artist name only\n- Song title only`
             }, { quoted: fake });
         }
 
-        await sock.sendMessage(chatId, {
-            document: {
-                url: fileInfo[0].link,
-            },
-            fileName: fileInfo[0].nama,
-            mimetype: fileInfo[0].mime,
-            caption: `*${fileInfo[0].nama}*\nSize: ${fileInfo[0].size}\n- DAVE X`,
-        }, { quoted: fake });
+        if (results.length === 1) {
+            const lyrics = await getLyricsText(results[0].songLyricsUrl);
+            await sock.sendMessage(chatId, { 
+                text: formatLyrics(results[0], lyrics)
+            }, { quoted: fake });
+        } else {
+            // Auto-select first result if multiple found
+            const lyrics = await getLyricsText(results[0].songLyricsUrl);
+            await sock.sendMessage(chatId, { 
+                text: formatLyrics(results[0], lyrics)
+            }, { quoted: fake });
+            
+            // Optionally show other results
+            if (results.length > 1) {
+                await sock.sendMessage(chatId, { 
+                    text: formatResultsList(results, query)
+                }, { quoted: fake });
+            }
+        }
 
     } catch (error) {
-        console.error("MediaFire Error:", error);
+        console.error("Lyrics Error:", error);
         await sock.sendMessage(chatId, { 
-            text: "Failed to download file"
+            text: "Failed to fetch lyrics"
         }, { quoted: fake });
     }
 }
 
-module.exports = mediafireCommand;
+module.exports = lyricsCommand;

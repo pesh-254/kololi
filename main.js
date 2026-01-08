@@ -246,6 +246,7 @@ const staffCommand = require('./commands/staff');
 const unbanCommand = require('./commands/unban');
 const emojimixCommand = require('./commands/emojimix');
 const { handlePromotionEvent } = require('./commands/promote');
+const copilotCommand = require('./commands/copilot');
 const { handleDemotionEvent } = require('./commands/demote');
 const viewOnceCommand = require('./commands/viewonce');
 const clearSessionCommand = require('./commands/clearsession');
@@ -1181,7 +1182,9 @@ case userMessage.startsWith(`${prefix}linkgc`):
             case userMessage === `${prefix}unblock`:
                 await unblockallCommand(sock, chatId, message);
                 break;
-
+case userMessage.startsWith(`${prefix}copilot`):
+    await copilotCommand(sock, chatId, message);
+    break;
 
             case userMessage === `${prefix}blocklist` ||
                  userMessage === `${prefix}listblock`:

@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const AI_API = {
+const GPT_API = {
     baseURL: "https://iamtkm.vercel.app",
     endpoint: "/ai/gpt5",
     apiKey: "tkm"
@@ -13,7 +13,7 @@ async function aiCommand(sock, chatId, message) {
 
         if (!text) {
             return await sock.sendMessage(chatId, { 
-                text: "DAVE AI\n\nUse: !ai [your question]\nExample: !ai explain quantum computing" 
+                text: "GPT-5 Assistant\n\nUse: !ai [your question]\nExample: !ai explain machine learning" 
             });
         }
 
@@ -22,7 +22,7 @@ async function aiCommand(sock, chatId, message) {
 
         if (!query) {
             return await sock.sendMessage(chatId, { 
-                text: "Need a question after !ai\nExample: !ai how to learn python" 
+                text: "Need a question after !ai\nExample: !ai what is quantum physics" 
             });
         }
 
@@ -42,7 +42,7 @@ async function aiCommand(sock, chatId, message) {
 
 async function processAIRequest(sock, chatId, message, query) {
     try {
-        const apiUrl = `${AI_API.baseURL}${AI_API.endpoint}?apikey=${AI_API.apiKey}&text=${encodeURIComponent(query)}`;
+        const apiUrl = `${GPT_API.baseURL}${GPT_API.endpoint}?apikey=${GPT_API.apiKey}&text=${encodeURIComponent(query)}`;
         
         const response = await axios.get(apiUrl, { 
             timeout: 30000,
@@ -69,7 +69,7 @@ async function processAIRequest(sock, chatId, message, query) {
         }
 
     } catch (error) {
-        console.error('API Error:', error.message);
+        console.error('AI API Error:', error.message);
         
         if (error.response?.status === 429) {
             await sock.sendMessage(chatId, {

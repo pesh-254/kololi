@@ -237,7 +237,7 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     menu += `│› ${prefix2}menuconfig\n`;
     menu += `┗▣`;
 
-// TEXT/IMAGE COMMANDS
+    // TEXT/IMAGE COMMANDS
     menu += `┏▣ ◈ *TEXT/IMAGE* ◈\n`;
     menu += `│› ${prefix2}neon\n`;
     menu += `│› ${prefix2}matrix\n`;

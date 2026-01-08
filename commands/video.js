@@ -1,9 +1,10 @@
 const axios = require('axios');
 const yts = require('yt-search');
 
-// Izumi API configuration
-const izumi = {
-    baseURL: "https://izumiiiiiiii.dpdns.org"
+// Meta API configuration
+const META_API = {
+    baseURL: "https://meta-api.zone.id",
+    endpoint: "/downloader/youtube"
 };
 
 const AXIOS_DEFAULTS = {
@@ -47,13 +48,24 @@ async function tryRequest(getter, attempts = 3) {
     throw lastError;
 }
 
-async function getIzumiVideoByUrl(youtubeUrl) {
-    const apiUrl = `${izumi.baseURL}/downloader/youtube?url=${encodeURIComponent(youtubeUrl)}&format=720`;
+// FIXED: Changed to use Meta API with proper response structure
+async function getMetaVideoByUrl(youtubeUrl) {
+    const apiUrl = `${META_API.baseURL}${META_API.endpoint}?url=${encodeURIComponent(youtubeUrl)}&format=720`;
     const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
-    if (res?.data?.result?.download) return res.data.result;
-    throw new Error('Izumi api no download');
+    
+    // Check if response matches Meta API structure
+    if (res?.data?.status === true && res.data.result?.download) {
+        return {
+            download: res.data.result.download,
+            title: res.data.result.title,
+            thumbnail: res.data.result.thumbnail,
+            quality: res.data.result.quality || '720'
+        };
+    }
+    throw new Error('Meta API no download');
 }
 
+// Keep your original fallback function (unchanged)
 async function getOkatsuVideoByUrl(youtubeUrl) {
     const apiUrl = `https://okatsu-rolezapiiz.vercel.app/downloader/ytmp4?url=${encodeURIComponent(youtubeUrl)}`;
     const res = await tryRequest(() => axios.get(apiUrl, AXIOS_DEFAULTS));
@@ -65,11 +77,11 @@ async function getOkatsuVideoByUrl(youtubeUrl) {
 
 async function videoCommand(sock, chatId, message) {
     const fkontak = createFakeContact(message);
-    
+
     try {
         const text = message.message?.conversation || message.message?.extendedTextMessage?.text;
         const searchQuery = text.split(' ').slice(1).join(' ').trim();
-        
+
         if (!searchQuery) {
             await sock.sendMessage(chatId, { text: 'What video to download?' }, { quoted: fkontak });
             return;
@@ -96,12 +108,12 @@ async function videoCommand(sock, chatId, message) {
             const thumb = videoThumbnail || (ytId ? `https://i.ytimg.com/vi/${ytId}/sddefault.jpg` : undefined);
             if (thumb) {
                 await sock.sendMessage(chatId, {
-                    image: { url: null },
-                    caption: `Searching video...`
+                    image: { url: thumb },
+                    caption: `Downloading video...`
                 }, { quoted: fkontak });
             }
         } catch (e) { console.error('Thumb error:', e?.message || e); }
-        
+
         let urls = videoUrl.match(/(?:https?:\/\/)?(?:youtu\.be\/|(?:www\.|m\.)?youtube\.com\/(?:watch\?v=|v\/|embed\/|shorts\/|playlist\?list=)?)([a-zA-Z0-9_-]{11})/gi);
         if (!urls) {
             await sock.sendMessage(chatId, { text: 'Invalid YouTube link.' }, { quoted: fkontak });
@@ -110,8 +122,10 @@ async function videoCommand(sock, chatId, message) {
 
         let videoData;
         try {
-            videoData = await getIzumiVideoByUrl(videoUrl);
+            // FIXED: Using Meta API instead of Izumi
+            videoData = await getMetaVideoByUrl(videoUrl);
         } catch (e1) {
+            // Fallback to Okatsu if Meta fails
             videoData = await getOkatsuVideoByUrl(videoUrl);
         }
 
@@ -119,7 +133,7 @@ async function videoCommand(sock, chatId, message) {
             video: { url: videoData.download },
             mimetype: 'video/mp4',
             fileName: `${videoData.title || videoTitle || 'video'}.mp4`,
-            caption: `${videoData.title || videoTitle || 'Video'}\nDownloaded by DAVE-X`
+            caption: `${videoData.title || videoTitle || 'Video'}\nQuality: ${videoData.quality || '720p'}\nDownloaded by DAVE-X`
         }, { quoted: fkontak });
 
     } catch (error) {

@@ -6,14 +6,14 @@ const COPILOT_API = {
     apiKey: "tkm"
 };
 
-async function copilotCommand(sock, chatId, message) {
+async function aiCommand(sock, chatId, message) {
     try {
         const text = message.message?.conversation || 
                     message.message?.extendedTextMessage?.text;
 
         if (!text) {
             return await sock.sendMessage(chatId, { 
-                text: "Microsoft Copilot\n\nUse: !cp [your question]\nExample: !cp help me code a login system" 
+                text: "Microsoft Copilot\n\nUse: !ai [your question]\nExample: !ai help me code a login system" 
             });
         }
 
@@ -22,7 +22,7 @@ async function copilotCommand(sock, chatId, message) {
 
         if (!query) {
             return await sock.sendMessage(chatId, { 
-                text: "Need a question after !cp\nExample: !cp how to fix this error" 
+                text: "Need a question after !ai\nExample: !ai how to fix this error" 
             });
         }
 
@@ -30,17 +30,17 @@ async function copilotCommand(sock, chatId, message) {
             react: { text: '⚡', key: message.key }
         });
 
-        await processCopilotRequest(sock, chatId, message, query);
+        await processAIRequest(sock, chatId, message, query);
 
     } catch (error) {
-        console.error('Copilot Command Error:', error);
+        console.error('AI Command Error:', error);
         await sock.sendMessage(chatId, {
-            text: "Copilot service down. Try again later."
+            text: "AI service down. Try again later."
         });
     }
 }
 
-async function processCopilotRequest(sock, chatId, message, query) {
+async function processAIRequest(sock, chatId, message, query) {
     try {
         const apiUrl = `${COPILOT_API.baseURL}${COPILOT_API.endpoint}?apikey=${COPILOT_API.apiKey}&text=${encodeURIComponent(query)}`;
         
@@ -64,12 +64,12 @@ async function processCopilotRequest(sock, chatId, message, query) {
             });
         } else {
             await sock.sendMessage(chatId, {
-                text: "Copilot couldn't generate a response. Try rephrasing."
+                text: "AI couldn't generate a response. Try rephrasing."
             });
         }
 
     } catch (error) {
-        console.error('Copilot API Error:', error.message);
+        console.error('AI API Error:', error.message);
         
         if (error.response?.status === 429) {
             await sock.sendMessage(chatId, {
@@ -81,7 +81,7 @@ async function processCopilotRequest(sock, chatId, message, query) {
             });
         } else {
             await sock.sendMessage(chatId, {
-                text: "Copilot service error."
+                text: "AI service error."
             });
         }
 
@@ -91,4 +91,4 @@ async function processCopilotRequest(sock, chatId, message, query) {
     }
 }
 
-module.exports = copilotCommand;
+module.exports = aiCommand;

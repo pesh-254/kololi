@@ -225,6 +225,7 @@ const creategroupCommand = require('./commands/creategroup');
 const linkgroupCommand = require('./commands/linkgroup');
 const { insultCommand } = require('./commands/insult');
 const { eightBallCommand } = require('./commands/eightball');
+const channelidCommand = require('./commands/channelid');
 const { lyricsCommand } = require('./commands/lyrics');
 const { dareCommand } = require('./commands/dare');
 const { truthCommand } = require('./commands/truth');
@@ -970,6 +971,11 @@ case userMessage === `${prefix}status`:
             case userMessage === `${prefix}fact`:
                 await factCommand(sock, chatId, message, message);
                 break;
+case userMessage.startsWith(`${prefix}channelid`):
+case userMessage.startsWith(`${prefix}idch`):
+case userMessage.startsWith(`${prefix}checkidch`):
+    await channelidCommand(sock, chatId, message);
+    break;
 
             case userMessage.startsWith(`${prefix}weather`):
                 const city = userMessage.slice((prefix + 'weather').length).trim();

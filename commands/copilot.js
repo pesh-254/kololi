@@ -1,54 +1,43 @@
 const axios = require('axios');
 
-const COPILOT_API = {
-    baseURL: "https://iamtkm.vercel.app",
-    endpoint: "/ai/copilot",
-    apiKey: "tkm"
-};
-
-async function aiCommand(sock, chatId, message) {
-    try {
-        const text = message.message?.conversation || 
-                    message.message?.extendedTextMessage?.text;
-
-        if (!text) {
-            return await sock.sendMessage(chatId, { 
-                text: "Microsoft Copilot\n\nUse: !ai [your question]\nExample: !ai help me code a login system" 
-            });
-        }
-
-        const parts = text.split(' ');
-        const query = parts.slice(1).join(' ').trim();
-
-        if (!query) {
-            return await sock.sendMessage(chatId, { 
-                text: "Need a question after !ai\nExample: !ai how to fix this error" 
-            });
-        }
-
-        await sock.sendMessage(chatId, {
-            react: { text: '⚡', key: message.key }
-        });
-
-        await processAIRequest(sock, chatId, message, query);
-
-    } catch (error) {
-        console.error('AI Command Error:', error);
-        await sock.sendMessage(chatId, {
-            text: "AI service down. Try again later."
-        });
-    }
+function createFakeContact(message) {
+    return {
+        key: {
+            participants: "0@s.whatsapp.net",
+            remoteJid: "status@broadcast",
+            fromMe: false,
+            id: "DAVE-X"
+        },
+        message: {
+            contactMessage: {
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:DAVE X\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
+            }
+        },
+        participant: "0@s.whatsapp.net"
+    };
 }
 
-async function processAIRequest(sock, chatId, message, query) {
+async function copilotCommand(sock, chatId, message) {
+    const fake = createFakeContact(message);
+    
+    const text = message.message?.conversation || 
+                 message.message?.extendedTextMessage?.text || '';
+    
+    const query = text.split(' ').slice(1).join(' ').trim();
+    
+    if (!query) {
+        return sock.sendMessage(chatId, { 
+            text: "Microsoft Copilot\nUse: .copilot [your question]\nExample: .copilot help me code a login system"
+        }, { quoted: fake });
+    }
+
     try {
-        const apiUrl = `${COPILOT_API.baseURL}${COPILOT_API.endpoint}?apikey=${COPILOT_API.apiKey}&text=${encodeURIComponent(query)}`;
+        const apiUrl = `https://iamtkm.vercel.app/ai/copilot?apikey=tkm&text=${encodeURIComponent(query)}`;
         
         const response = await axios.get(apiUrl, { 
             timeout: 30000,
             headers: {
-                'User-Agent': 'WhatsApp-Bot/1.0',
-                'Accept': 'application/json'
+                'User-Agent': 'WhatsApp-Bot/1.0'
             }
         });
         
@@ -57,38 +46,30 @@ async function processAIRequest(sock, chatId, message, query) {
         if (data.status && data.statusCode === 200 && data.result) {
             await sock.sendMessage(chatId, {
                 text: data.result
-            });
-            
-            await sock.sendMessage(chatId, {
-                react: { text: '✅', key: message.key }
-            });
+            }, { quoted: fake });
         } else {
             await sock.sendMessage(chatId, {
-                text: "AI couldn't generate a response. Try rephrasing."
-            });
+                text: "No response from Copilot"
+            }, { quoted: fake });
         }
 
     } catch (error) {
-        console.error('AI API Error:', error.message);
+        console.error('Copilot Error:', error);
         
         if (error.response?.status === 429) {
             await sock.sendMessage(chatId, {
                 text: "Too many requests. Wait 5 minutes."
-            });
+            }, { quoted: fake });
         } else if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
             await sock.sendMessage(chatId, {
-                text: "Request timeout. Try shorter query."
-            });
+                text: "Request timeout"
+            }, { quoted: fake });
         } else {
             await sock.sendMessage(chatId, {
-                text: "AI service error."
-            });
+                text: "Copilot service error"
+            }, { quoted: fake });
         }
-
-        await sock.sendMessage(chatId, {
-            react: { text: '❌', key: message.key }
-        });
     }
 }
 
-module.exports = aiCommand;
+module.exports = copilotCommand;

@@ -783,10 +783,10 @@ if (/^[1-9]$/.test(userMessage)) {
 
     // Mode descriptions
     const modeDescriptions = {
-        private: 'Private mode - Only the owner can use the bot',
-        public: 'Public mode - Everyone can use the bot',
-        group: 'Group mode - Only groups can use the bot',
-        pm: 'PM mode - Only private messages can use the bot'
+        private: 'successfully enabled private mode',
+        public: 'successfully enabled public mode',
+        group: 'Only Group mode enabled',
+        pm: 'Successfully enabled only pc mode'
     };
 
     // If no argument provided, show current status
@@ -796,9 +796,9 @@ if (/^[1-9]$/.test(userMessage)) {
             text: `*Bot Mode Configuration*\n\n` +
                   `Current mode: *${currentMode}*\n\n` +
                   `📋 *Available Modes:*\n` +
-                  `• ${prefix}mode private - Only owner can use bot\n` +
-                  `• ${prefix}mode public - Everyone can use bot\n` +
-                  `• ${prefix}mode group - Only groups can use bot\n` +
+                  `• ${prefix}mode private - Only owner can use Davex\n` +
+                  `• ${prefix}mode public - Everyone who commands can use Davex\n` +
+                  `• ${prefix}mode group - Bot can only be used in groups\n` +
                   `• ${prefix}mode pm - Only private messages\n\n` +
                   `Example:\n${prefix}mode public`
         }, { quoted: fake });
@@ -808,11 +808,11 @@ if (/^[1-9]$/.test(userMessage)) {
     // Validate mode
     if (!validModes.includes(action)) {
         await sock.sendMessage(chatId, {
-            text: `Invalid mode!\n\n🥞 *Available Modes:*\n` +
+            text: `Thats an Invalid mode!\n\n🦥 *Available Modes:*\n` +
                   `• ${prefix}mode private - Only owner can use bot\n` +
                   `• ${prefix}mode public - Everyone can use bot\n` +
-                  `• ${prefix}mode group - Only groups can use bot\n` +
-                  `• ${prefix}mode pm - Only private messages\n\n` +
+                  `• ${prefix}mode group - Bot can only be used in groups\n` +
+                  `• ${prefix}mode pm - Bot can only be used in pm mode\n\n` +
                   `Example:\n${prefix}mode group`
         }, { quoted: fake });
         return;

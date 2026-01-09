@@ -8,7 +8,7 @@ const CONFIG_PATH = path.join(__dirname, '../data/antidelete.json');
 const TEMP_MEDIA_DIR = path.join(__dirname, '../tmp');
 
 const DEFAULT_CONFIG = {
-    enabled: false,
+    enabled: true,
     mode: 'private',
     notifyGroups: true,
     notifyPM: true,

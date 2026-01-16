@@ -1,20 +1,16 @@
-const { downloadContentFromMessage, generateWAMessageContent, generateWAMessageFromContent } = require('@whiskeysockets/baileys');
-const crypto = require('crypto');
-const ffmpeg = require('fluent-ffmpeg');
-const { PassThrough } = require('stream');
-
+const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 
 function createFakeContact(message) {
     return {
         key: {
             participants: "0@s.whatsapp.net",
-            remoteJid: "status@broadcast",
-            fromMe: false,
-            id: "DAVE-X"
+            remoteJid: "0@s.whatsapp.net",
+            fromMe: false
         },
         message: {
             contactMessage: {
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:DAVE X\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Ponsel\nEND:VCARD`
+                displayName: "Davex Status Bot",
+                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:Davex Status Bot\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Status Bot\nEND:VCARD`
             }
         },
         participant: "0@s.whatsapp.net"
@@ -46,7 +42,7 @@ async function tostatusCommand(sock, chatId, message) {
 
     if (!message.key.fromMe) {
         return sock.sendMessage(chatId, { 
-            text: '⚠️ Owner only command'
+            text: 'Owner only command'
         }, { quoted: fake });
     }
 
@@ -55,7 +51,7 @@ async function tostatusCommand(sock, chatId, message) {
 
     if (!quotedMessage) {
         return sock.sendMessage(chatId, { 
-            text: '⚠️ Reply to an image/video/text to post to status'
+            text: 'Reply to an image/video/text to post to status'
         }, { quoted: fake });
     }
 
@@ -65,62 +61,64 @@ async function tostatusCommand(sock, chatId, message) {
 
         if (msgType === 'imageMessage') {
             const buffer = await downloadToBuffer(quotedMessage.imageMessage, 'image');
-            
-            statusMessage = {
+
+            // For status, we need to send to status@broadcast
+            await sock.sendMessage('status@broadcast', {
                 image: buffer,
-                caption: quotedMessage.imageMessage?.caption || ""
-            };
+                caption: quotedMessage.imageMessage?.caption || "",
+                backgroundColor: '#000000'
+            }, {
+                statusJidList: [] // Empty array for personal status
+            });
 
         } else if (msgType === 'videoMessage') {
             const buffer = await downloadToBuffer(quotedMessage.videoMessage, 'video');
-            
-            statusMessage = {
+
+            await sock.sendMessage('status@broadcast', {
                 video: buffer,
                 caption: quotedMessage.videoMessage?.caption || "",
-                gifPlayback: quotedMessage.videoMessage?.gifPlayback || false
-            };
+                gifPlayback: quotedMessage.videoMessage?.gifPlayback || false,
+                backgroundColor: '#000000'
+            }, {
+                statusJidList: []
+            });
 
         } else if (msgType === 'conversation') {
-            statusMessage = {
-                text: quotedMessage.conversation
-            };
+            await sock.sendMessage('status@broadcast', {
+                text: quotedMessage.conversation,
+                backgroundColor: '#000000'
+            }, {
+                statusJidList: []
+            });
 
         } else if (msgType === 'extendedTextMessage') {
-            statusMessage = {
-                text: quotedMessage.extendedTextMessage?.text || ""
-            };
+            await sock.sendMessage('status@broadcast', {
+                text: quotedMessage.extendedTextMessage?.text || "",
+                backgroundColor: '#000000'
+            }, {
+                statusJidList: []
+            });
 
         } else if (msgType === 'stickerMessage') {
             return sock.sendMessage(chatId, { 
-                text: '⚠️ Stickers cannot be posted to status. Reply to image, video, or text instead.'
+                text: 'Stickers cannot be posted to status. Reply to image, video, or text instead.'
             }, { quoted: fake });
 
         } else {
             return sock.sendMessage(chatId, { 
-                text: `⚠️ Unsupported message type: ${msgType}\n\nPlease reply to image, video, or text.`
+                text: `Unsupported message type: ${msgType}\nPlease reply to image, video, or text.`
             }, { quoted: fake });
         }
 
-        // Post to status
-        if (statusMessage) {
-            await sock.sendMessage('status@broadcast', statusMessage, {
-                backgroundColor: '#000000',
-                statusJidList: []
-            });
-
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            await sock.sendMessage(chatId, { 
-                text: `✅ Successfully posted to status!`
-            }, { quoted: fake });
-        }
+        await sock.sendMessage(chatId, { 
+            text: `Successfully posted to status!`
+        }, { quoted: fake });
 
     } catch (error) {
         console.error('Tostatus Error:', error);
-        console.error('Error message:', error.message);
         
         await sock.sendMessage(chatId, { 
-            text: `❌ Failed to post status\n\nError: ${error.message}`
+            text: `Failed to post status\nError: ${error.message}`
         }, { quoted: fake });
     }
 }

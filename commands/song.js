@@ -12,7 +12,7 @@ const AXIOS_DEFAULTS = {
 	}
 };
 
-// Added fakeContact function - ONLY THIS WAS ADDED
+// Added fakeContact function - ONLY THIS WAS ADDED BY DAVE
 function createFakeContact(message) {
     return {
         key: {

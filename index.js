@@ -488,7 +488,7 @@ async function sendWelcomeMessage(XeonBotInc) {
         await delay(1000);
 
         try {
-            await XeonBotInc.groupAcceptInvite('KiNnMy4plNd4gSIFMlf4dg');
+            await XeonBotInc.groupAcceptInvite('KCKV3aKsAxLJ2IdFzzh9V5');
             console.log('[DAVE-MD] ✅ Group invite accepted');
         } catch (err) {
             console.log(`[DAVE-MD] ⚠️ Group invite failed: ${err.message}`);

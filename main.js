@@ -47,7 +47,7 @@ console.log = function (message, ...optionalParams) {
     originalLog.apply(console, [message, ...optionalParams]);
 };
 
-const { getBotName, createFakeContact } = require('../lib/fakeContact');
+const { getBotName, createFakeContact } = require('./lib/fakeContact');
 const settings = require('./settings');
 require('./config.js');
 const { isBanned } = require('./lib/isBanned');

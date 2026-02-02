@@ -1,4 +1,3 @@
-
 const { getOwnerConfig, setOwnerConfig, getGroupConfig, setGroupConfig, parseToggleCommand } = require('../Database/settingsStore');
 const db = require('../Database/database');
 const { createFakeContact, getBotName } = require('../lib/fakeContact');
@@ -49,10 +48,10 @@ async function antieditCommand(sock, chatId, message, args) {
                         `Mode: ${config.mode || 'private'}\n` +
                         `Tracked messages: ${originalMessages.size}\n\n` +
                         `*Commands:*\n` +
-                        `.antiedit on - Enable\n` +
+                        `.antiedit private - Enable (send to your DM)\n` +
+                        `.antiedit chat - Enable (send to current chat)\n` +
+                        `.antiedit both - Enable (send to both)\n` +
                         `.antiedit off - Disable\n` +
-                        `.antiedit private - Send to your DM\n` +
-                        `.antiedit chat - Send to current chat\n` +
                         `.antiedit status - Show status`;
         
         await sock.sendMessage(chatId, { text: helpText }, { quoted: fake });
@@ -62,31 +61,32 @@ async function antieditCommand(sock, chatId, message, args) {
     let newConfig = { ...config };
     let responseText = '';
 
+    // Handle specific commands first
     if (sub === 'status') {
         responseText = `*${botName} ANTIEDIT STATUS*\n\n` +
                       `Status: ${config.enabled ? 'ACTIVE' : 'INACTIVE'}\n` +
                       `Mode: ${config.mode || 'private'}\n` +
                       `Tracked: ${originalMessages.size} messages`;
     } else if (sub === 'private') {
+        newConfig.enabled = true;
         newConfig.mode = 'private';
-        responseText = `*${botName}*\nAntiEdit mode set to PRIVATE\nNotifications will be sent to your DM.`;
+        responseText = `*${botName}*\nAntiEdit ENABLED\nMode: private\nNotifications will be sent to your DM.`;
     } else if (sub === 'chat') {
+        newConfig.enabled = true;
         newConfig.mode = 'chat';
-        responseText = `*${botName}*\nAntiEdit mode set to CHAT\nNotifications will be sent to current chat.`;
+        responseText = `*${botName}*\nAntiEdit ENABLED\nMode: chat\nNotifications will be sent to current chat.`;
+    } else if (sub === 'both') {
+        newConfig.enabled = true;
+        newConfig.mode = 'both';
+        responseText = `*${botName}*\nAntiEdit ENABLED\nMode: both\nNotifications will be sent to both DM and current chat.`;
+    } else if (sub === 'off' || sub === 'disable') {
+        newConfig.enabled = false;
+        responseText = `*${botName}*\nAntiEdit DISABLED`;
     } else {
-        const toggle = parseToggleCommand(sub);
-        if (toggle === 'on') {
-            newConfig.enabled = true;
-            if (!newConfig.mode) newConfig.mode = 'private'; // Default to private
-            responseText = `*${botName}*\nAntiEdit ENABLED\nMode: ${newConfig.mode}\nEdited messages will be tracked.`;
-        } else if (toggle === 'off') {
-            newConfig.enabled = false;
-            responseText = `*${botName}*\nAntiEdit DISABLED`;
-        } else {
-            responseText = `*${botName}*\nInvalid command!\nUse: on, off, private, chat, status`;
-        }
+        responseText = `*${botName}*\nInvalid command!\nUse: private, chat, both, off, status`;
     }
 
+    // Save config if valid command
     if (responseText && !responseText.includes('Invalid')) {
         if (isGroup) {
             setGroupConfig(chatId, 'antiedit', newConfig);
@@ -193,23 +193,34 @@ async function handleEditedMessage(sock, editedMessage) {
                                 `*EDITED TO:*\n${newText.substring(0, 500)}${newText.length > 500 ? '...' : ''}`;
         
         const fake = createFakeContact(original.sender);
+        const mode = config.mode || 'private'; // Default to private
+        const ownerNumber = sock.user.id.split(':')[0] + '@s.whatsapp.net';
         
-        // Determine where to send based on mode
-        const mode = config.mode || 'private'; // Default to private if not set
-        let targetChat;
-        
-        if (mode === 'chat') {
-            // Send to current chat where edit happened
-            targetChat = chatId;
-        } else {
-            // Send to owner's private chat
-            targetChat = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+        // Send based on mode
+        if (mode === 'private') {
+            // Send to owner's DM only
+            await sock.sendMessage(ownerNumber, {
+                text: notificationText,
+                mentions: [original.sender]
+            }, { quoted: fake });
+        } else if (mode === 'chat') {
+            // Send to current chat only
+            await sock.sendMessage(chatId, {
+                text: notificationText,
+                mentions: [original.sender]
+            }, { quoted: fake });
+        } else if (mode === 'both') {
+            // Send to both
+            await sock.sendMessage(ownerNumber, {
+                text: notificationText,
+                mentions: [original.sender]
+            }, { quoted: fake });
+            
+            await sock.sendMessage(chatId, {
+                text: notificationText,
+                mentions: [original.sender]
+            }, { quoted: fake });
         }
-        
-        await sock.sendMessage(targetChat, {
-            text: notificationText,
-            mentions: [original.sender]
-        }, { quoted: fake });
         
         originalMessages.set(messageId, {
             ...original,

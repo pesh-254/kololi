@@ -1,5 +1,5 @@
-const { getOwnerConfig, setOwnerConfig, getGroupConfig, setGroupConfig, parseToggleCommand } = require('../Database/settingsStore');
-const db = require('../Database/database');
+const { getOwnerConfig, setOwnerConfig, getGroupConfig, setGroupConfig, parseToggleCommand, parseModeCommand } = require('../Database/settingsStore');
+const db = require('./database');
 const { createFakeContact, getBotName } = require('../lib/fakeContact');
 
 const originalMessages = new Map();
@@ -15,9 +15,8 @@ async function isAuthorized(sock, message) {
     }
 }
 
-async function antieditCommand(sock, chatId, message, args) {
+async function antieditCommand(sock, chatId, message, senderId) {
     const isGroup = chatId.endsWith('@g.us');
-    const senderId = message.key.participant || message.key.remoteJid;
     const botName = getBotName();
     const fake = createFakeContact(senderId);
 
@@ -39,8 +38,17 @@ async function antieditCommand(sock, chatId, message, args) {
         }
     }
 
+    // Get the message text
+    const text = message.message?.conversation || 
+                message.message?.extendedTextMessage?.text || 
+                '';
+    const args = text.trim().split(/\s+/);
+    
+    // Remove the command part
+    args.shift();
+    
+    const sub = args[0]?.toLowerCase() || '';
     const config = isGroup ? getGroupConfig(chatId, 'antiedit') : getOwnerConfig('antiedit');
-    const sub = (args || '').trim().toLowerCase();
 
     if (!sub) {
         const helpText = `*${botName} ANTIEDIT*\n\n` +
@@ -67,30 +75,50 @@ async function antieditCommand(sock, chatId, message, args) {
                       `Mode: ${config.mode || 'private'}\n` +
                       `Tracked: ${originalMessages.size} messages`;
     } else if (sub === 'mode') {
-        const modeArgs = args.trim().split(' ');
-        const mode = modeArgs[1]?.toLowerCase();
+        const modeArg = args[1]?.toLowerCase() || '';
         
-        if (mode === 'chat' || mode === 'current' || mode === 'group') {
-            newConfig.mode = 'chat';
-            responseText = `*${botName}*\nMode set to: CURRENT CHAT\nNotifications will be sent where edits happen.`;
-        } else if (mode === 'private' || mode === 'owner' || mode === 'pm') {
-            newConfig.mode = 'private';
-            responseText = `*${botName}*\nMode set to: PRIVATE\nNotifications will be sent to owner's chat.`;
+        if (!modeArg) {
+            responseText = `*${botName}*\nPlease specify a mode!\nUse: .antiedit mode chat OR .antiedit mode private`;
         } else {
-            responseText = `*${botName}*\nInvalid mode!\nUse: .antiedit mode chat OR .antiedit mode private`;
+            const mode = parseModeCommand(modeArg);
+            if (mode === 'chat') {
+                newConfig.mode = 'chat';
+                responseText = `*${botName}*\nMode set to: CURRENT CHAT\nNotifications will be sent where edits happen.`;
+            } else if (mode === 'private') {
+                newConfig.mode = 'private';
+                responseText = `*${botName}*\nMode set to: PRIVATE\nNotifications will be sent to owner's chat.`;
+            } else {
+                responseText = `*${botName}*\nInvalid mode!\nUse: .antiedit mode chat OR .antiedit mode private`;
+            }
         }
     } else {
         const toggle = parseToggleCommand(sub);
         if (toggle === 'on') {
             newConfig.enabled = true;
-            // Ensure mode is set to private by default when enabling
+            // Keep existing mode if set, otherwise default to private
             if (!newConfig.mode) newConfig.mode = 'private';
             responseText = `*${botName}*\nAntiEdit ENABLED\nMode: ${newConfig.mode}\nEdited messages will be tracked.`;
         } else if (toggle === 'off') {
             newConfig.enabled = false;
             responseText = `*${botName}*\nAntiEdit DISABLED`;
+        } else if (parseModeCommand(sub) === 'chat') {
+            // Handle direct .antiedit chat command
+            newConfig.mode = 'chat';
+            if (!newConfig.enabled) {
+                responseText = `*${botName}*\nMode set to: CHAT\nNote: AntiEdit is still disabled. Use .antiedit on to enable.`;
+            } else {
+                responseText = `*${botName}*\nMode set to: CHAT\nNotifications will be sent where edits happen.`;
+            }
+        } else if (parseModeCommand(sub) === 'private') {
+            // Handle direct .antiedit private command
+            newConfig.mode = 'private';
+            if (!newConfig.enabled) {
+                responseText = `*${botName}*\nMode set to: PRIVATE\nNote: AntiEdit is still disabled. Use .antiedit on to enable.`;
+            } else {
+                responseText = `*${botName}*\nMode set to: PRIVATE\nNotifications will be sent to owner's chat.`;
+            }
         } else {
-            responseText = `*${botName}*\nInvalid command!\nUse: on, off, mode chat/private, status`;
+            responseText = `*${botName}*\nInvalid command!\nUse: on, off, mode chat/private, chat, private, status`;
         }
     }
 
@@ -201,7 +229,7 @@ async function handleEditedMessage(sock, editedMessage) {
                                 `*EDITED TO:*\n${newText.substring(0, 500)}${newText.length > 500 ? '...' : ''}`;
 
         // DETERMINE WHERE TO SEND NOTIFICATION - DEFAULT TO PRIVATE
-        let notificationChatId = chatId; // Default to current chat
+        let notificationChatId = chatId;
         
         // Check mode - default to 'private' if not set
         const mode = config.mode || 'private';

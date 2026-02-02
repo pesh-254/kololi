@@ -1,0 +1,12 @@
+node_modules/
+.env
+*.db
+*.db-wal
+*.db-shm
+tmp/
+session/
+auth_info_baileys/
+*.log
+.DS_Store
+message_backup.json
+sessionErrorCount.json

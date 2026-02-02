@@ -1,0 +1,14 @@
+{
+  "enabled": false,
+  "mode": "private",
+  "notifyGroups": true,
+  "notifyPM": true,
+  "excludeGroups": [],
+  "excludeUsers": [],
+  "maxMessages": 1000,
+  "cleanupInterval": 60,
+  "autoCleanup": true,
+  "captureMedia": true,
+  "captureText": true,
+  "maxStorageMB": 200
+}

@@ -11,7 +11,7 @@ async function handleAntitagCommand(sock, chatId, userMessage, senderId, isSende
         const fake = createFakeContact(senderId);
         const botName = getBotName();
         const prefix = getPrefix();
-        
+
         if (!isSenderAdmin && !message?.key?.fromMe && !db.isSudo(senderId)) {
             await sock.sendMessage(chatId, { text: `*${botName}*\nAdmin only command!` }, { quoted: fake });
             return;
@@ -69,19 +69,22 @@ async function handleAntitagCommand(sock, chatId, userMessage, senderId, isSende
     }
 }
 
-async function detectTagall(sock, chatId, message, senderId) {
+async function handleTagDetection(sock, message) {
     try {
-        if (!chatId.endsWith('@g.us')) return;
+        const chatId = message.key.remoteJid;
+        const senderId = message.key.participant || message.key.remoteJid;
+        
+        if (!chatId.endsWith('@g.us')) return false;
 
         const config = getGroupConfig(chatId, 'antitag');
-        if (!config || !config.enabled) return;
+        if (!config || !config.enabled) return false;
 
         const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
-        if (!isBotAdmin || isSenderAdmin || db.isSudo(senderId)) return;
+        if (!isBotAdmin || isSenderAdmin || db.isSudo(senderId)) return false;
 
         const mentions = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-        
-        if (mentions.length < 5) return;
+
+        if (mentions.length < 5) return false;
 
         const botName = getBotName();
         const userTag = `@${senderId.split("@")[0]}`;
@@ -97,7 +100,7 @@ async function detectTagall(sock, chatId, message, senderId) {
             });
         } catch (e) {
             console.error("[ANTITAG] Delete failed:", e.message);
-            return;
+            return false;
         }
 
         const stats = antitagStats.get(chatId) || { blocked: 0 };
@@ -116,13 +119,73 @@ async function detectTagall(sock, chatId, message, senderId) {
                 mentions: [senderId]
             });
         }
+        
+        return true;
+    } catch (error) {
+        console.error('Error in handleTagDetection:', error.message, 'Line:', error.stack?.split('\n')[1]);
+        return false;
+    }
+}
+
+// Keep detectTagall for backward compatibility
+async function detectTagall(sock, chatId, message, senderId) {
+    try {
+        if (!chatId.endsWith('@g.us')) return false;
+
+        const config = getGroupConfig(chatId, 'antitag');
+        if (!config || !config.enabled) return false;
+
+        const { isSenderAdmin, isBotAdmin } = await isAdmin(sock, chatId, senderId);
+        if (!isBotAdmin || isSenderAdmin || db.isSudo(senderId)) return false;
+
+        const mentions = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
+
+        if (mentions.length < 5) return false;
+
+        const botName = getBotName();
+        const userTag = `@${senderId.split("@")[0]}`;
+
+        try {
+            await sock.sendMessage(chatId, {
+                delete: {
+                    remoteJid: chatId,
+                    fromMe: false,
+                    id: message.key.id,
+                    participant: senderId
+                }
+            });
+        } catch (e) {
+            console.error("[ANTITAG] Delete failed:", e.message);
+            return false;
+        }
+
+        const stats = antitagStats.get(chatId) || { blocked: 0 };
+        stats.blocked++;
+        antitagStats.set(chatId, stats);
+
+        if (config.action === 'kick') {
+            await sock.sendMessage(chatId, {
+                text: `*${botName}*\n\n${userTag} kicked for mass tagging!`,
+                mentions: [senderId]
+            });
+            await sock.groupParticipantsUpdate(chatId, [senderId], 'remove');
+        } else {
+            await sock.sendMessage(chatId, {
+                text: `*${botName}*\n\n${userTag}, mass tagging is not allowed!`,
+                mentions: [senderId]
+            });
+        }
+        
+        return true;
     } catch (error) {
         console.error('Error in detectTagall:', error.message, 'Line:', error.stack?.split('\n')[1]);
+        return false;
     }
 }
 
 module.exports = {
     handleAntitagCommand,
-    detectTagall,
+    handleTagDetection,  // Added this for main file compatibility
+    detectTagall,        // Keep for backward compatibility
     antitagStats
 };

@@ -20,7 +20,7 @@ async function antieditCommand(sock, chatId, message, args) {
     const senderId = message.key.participant || message.key.remoteJid;
     const botName = getBotName();
     const fake = createFakeContact(senderId);
-    
+
     if (isGroup) {
         try {
             const groupMetadata = await sock.groupMetadata(chatId);
@@ -49,13 +49,13 @@ async function antieditCommand(sock, chatId, message, args) {
                         `Mode: ${mode.toUpperCase()}\n` +
                         `Tracked messages: ${originalMessages.size}\n\n` +
                         `*Commands:*\n` +
-                        `.antiedit on - Enable\n` +
+                        `.antiedit on - Enable & send to owner only\n` +
                         `.antiedit off - Disable\n` +
-                        `.antiedit private - Send to owner only\n` +
-                        `.antiedit chat - Send to same chat\n` +
-                        `.antiedit both - Send to both\n` +
+                        `.antiedit private - Same as "on"\n` +
+                        `.antiedit chat - Enable & send to same chat\n` +
+                        `.antiedit both - Enable & send to both owner & chat\n` +
                         `.antiedit status - Show status`;
-        
+
         await sock.sendMessage(chatId, { text: helpText }, { quoted: fake });
         return;
     }
@@ -72,24 +72,24 @@ async function antieditCommand(sock, chatId, message, args) {
     } else if (sub === 'private' || sub === 'prvt' || sub === 'priv') {
         newConfig.mode = 'private';
         newConfig.enabled = true;
-        responseText = `*${botName}*\nMode: PRIVATE\nEdited messages sent to owner only.`;
+        responseText = `*${botName}*\n✅ AntiEdit ENABLED\nMode: PRIVATE (owner only)`;
     } else if (sub === 'chat' || sub === 'cht') {
         newConfig.mode = 'chat';
         newConfig.enabled = true;
-        responseText = `*${botName}*\nMode: CHAT\nEdited messages sent to same chat.`;
+        responseText = `*${botName}*\n✅ AntiEdit ENABLED\nMode: CHAT (same chat only)`;
     } else if (sub === 'both' || sub === 'all') {
         newConfig.mode = 'both';
         newConfig.enabled = true;
-        responseText = `*${botName}*\nMode: BOTH\nEdited messages sent to owner and chat.`;
+        responseText = `*${botName}*\n✅ AntiEdit ENABLED\nMode: BOTH (owner & chat)`;
     } else {
         const toggle = parseToggleCommand(sub);
         if (toggle === 'on') {
+            newConfig.mode = 'private';  // Always private when using "on"
             newConfig.enabled = true;
-            if (!newConfig.mode) newConfig.mode = 'private';
-            responseText = `*${botName}*\nAntiEdit ENABLED\nMode: ${newConfig.mode.toUpperCase()}`;
+            responseText = `*${botName}*\n✅ AntiEdit ENABLED\nMode: PRIVATE (owner only)`;
         } else if (toggle === 'off') {
             newConfig.enabled = false;
-            responseText = `*${botName}*\nAntiEdit DISABLED`;
+            responseText = `*${botName}*\n❌ AntiEdit DISABLED`;
         } else {
             responseText = `*${botName}*\nInvalid command!\nUse: on, off, private, chat, both, status`;
         }
@@ -109,17 +109,17 @@ async function antieditCommand(sock, chatId, message, args) {
 function storeOriginalMessage(message) {
     try {
         if (!message?.key?.id) return;
-        
+
         const chatId = message.key.remoteJid;
         const isGroup = chatId.endsWith('@g.us');
         const config = isGroup ? getGroupConfig(chatId, 'antiedit') : getOwnerConfig('antiedit');
-        
+
         if (!config?.enabled) return;
-        
+
         let text = '';
         const msg = message.message;
         if (!msg) return;
-        
+
         if (msg.conversation) {
             text = msg.conversation;
         } else if (msg.extendedTextMessage?.text) {
@@ -131,14 +131,14 @@ function storeOriginalMessage(message) {
         } else if (msg.documentMessage?.caption) {
             text = msg.documentMessage.caption;
         }
-        
+
         if (!text) return;
-        
+
         if (originalMessages.size >= MAX_STORED_MESSAGES) {
             const firstKey = originalMessages.keys().next().value;
             originalMessages.delete(firstKey);
         }
-        
+
         originalMessages.set(message.key.id, {
             text,
             sender: message.key.participant || message.key.remoteJid,
@@ -146,7 +146,7 @@ function storeOriginalMessage(message) {
             timestamp: Date.now(),
             pushName: message.pushName || 'Unknown'
         });
-        
+
     } catch (err) {
         console.error('Error storing original message:', err.message);
     }
@@ -157,24 +157,24 @@ async function handleEditedMessage(sock, editedMessage) {
         const chatId = editedMessage.key.remoteJid;
         const isGroup = chatId.endsWith('@g.us');
         const config = isGroup ? getGroupConfig(chatId, 'antiedit') : getOwnerConfig('antiedit');
-        
+
         if (!config?.enabled) return;
-        
+
         let messageId = editedMessage.key.id;
-        
+
         const msg = editedMessage.message;
         if (msg?.protocolMessage?.key?.id) {
             messageId = msg.protocolMessage.key.id;
         }
-        
+
         const original = originalMessages.get(messageId);
         if (!original) return;
-        
+
         // Make sure the edit happened in the same chat as the original message
         if (original.chatId !== chatId) return;
-        
+
         let newText = '';
-        
+
         if (msg?.protocolMessage?.editedMessage) {
             const edited = msg.protocolMessage.editedMessage;
             if (edited.conversation) {
@@ -189,34 +189,34 @@ async function handleEditedMessage(sock, editedMessage) {
                 newText = msg.editedMessage.message.extendedTextMessage.text;
             }
         }
-        
+
         if (!newText || newText === original.text) return;
-        
+
         const mode = config.mode || 'private';
         const ownerNumber = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-        
+
         // Determine where to send the notification based on mode
         const targets = [];
-        
+
         if (mode === 'private' || mode === 'both') {
             targets.push(ownerNumber);
         }
-        
+
         if ((mode === 'chat' || mode === 'both') && chatId !== ownerNumber) {
             targets.push(chatId);
         }
-        
+
         if (targets.length === 0) return;
-        
+
         await sendEditNotification(sock, original, newText, editedMessage, targets);
-        
+
         // Update stored message with new text
         originalMessages.set(messageId, {
             ...original,
             text: newText,
             timestamp: Date.now()
         });
-        
+
     } catch (err) {
         console.error('Error handling edited message:', err.message);
     }
@@ -230,9 +230,9 @@ async function sendEditNotification(sock, original, newText, editedMessage, targ
             hour12: true, hour: '2-digit', minute: '2-digit',
             day: '2-digit', month: '2-digit', year: 'numeric'
         });
-        
+
         const fake = createFakeContact(original.sender);
-        
+
         // Get group name if in group
         let groupName = '';
         if (original.chatId.endsWith('@g.us')) {
@@ -241,7 +241,7 @@ async function sendEditNotification(sock, original, newText, editedMessage, targ
                 groupName = metadata.subject;
             } catch {}
         }
-        
+
         const notificationText = `*${botName} - MESSAGE EDITED*\n\n` +
                                 `By: @${senderNumber}\n` +
                                 `Name: ${original.pushName}\n` +
@@ -249,7 +249,7 @@ async function sendEditNotification(sock, original, newText, editedMessage, targ
                                 (groupName ? `Group: ${groupName}\n\n` : '\n') +
                                 `*ORIGINAL MESSAGE:*\n${original.text.substring(0, 500)}${original.text.length > 500 ? '...' : ''}\n\n` +
                                 `*EDITED TO:*\n${newText.substring(0, 500)}${newText.length > 500 ? '...' : ''}`;
-        
+
         for (const target of targets) {
             try {
                 await sock.sendMessage(target, {
@@ -258,7 +258,7 @@ async function sendEditNotification(sock, original, newText, editedMessage, targ
                 }, { quoted: fake });
             } catch {}
         }
-        
+
     } catch (err) {
         console.error('Error sending edit notification:', err.message);
     }

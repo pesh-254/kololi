@@ -43,15 +43,17 @@ async function antieditCommand(sock, chatId, message, args) {
     const sub = (args || '').trim().toLowerCase();
 
     if (!sub) {
+        const mode = config.mode || 'private';
         const helpText = `*${botName} ANTIEDIT*\n\n` +
                         `Status: ${config.enabled ? 'ON' : 'OFF'}\n` +
-                        `Mode: ${config.mode || 'private'}\n` +
+                        `Mode: ${mode.toUpperCase()}\n` +
                         `Tracked messages: ${originalMessages.size}\n\n` +
                         `*Commands:*\n` +
-                        `.antiedit private - Enable (send to your DM)\n` +
-                        `.antiedit chat - Enable (send to current chat)\n` +
-                        `.antiedit both - Enable (send to both)\n` +
+                        `.antiedit on - Enable\n` +
                         `.antiedit off - Disable\n` +
+                        `.antiedit private - Send to owner only\n` +
+                        `.antiedit chat - Send to same chat\n` +
+                        `.antiedit both - Send to both\n` +
                         `.antiedit status - Show status`;
         
         await sock.sendMessage(chatId, { text: helpText }, { quoted: fake });
@@ -61,32 +63,38 @@ async function antieditCommand(sock, chatId, message, args) {
     let newConfig = { ...config };
     let responseText = '';
 
-    // Handle specific commands first
     if (sub === 'status') {
+        const mode = config.mode || 'private';
         responseText = `*${botName} ANTIEDIT STATUS*\n\n` +
                       `Status: ${config.enabled ? 'ACTIVE' : 'INACTIVE'}\n` +
-                      `Mode: ${config.mode || 'private'}\n` +
+                      `Mode: ${mode.toUpperCase()}\n` +
                       `Tracked: ${originalMessages.size} messages`;
-    } else if (sub === 'private') {
-        newConfig.enabled = true;
+    } else if (sub === 'private' || sub === 'prvt' || sub === 'priv') {
         newConfig.mode = 'private';
-        responseText = `*${botName}*\nAntiEdit ENABLED\nMode: private\nNotifications will be sent to your DM.`;
-    } else if (sub === 'chat') {
         newConfig.enabled = true;
+        responseText = `*${botName}*\nMode: PRIVATE\nEdited messages sent to owner only.`;
+    } else if (sub === 'chat' || sub === 'cht') {
         newConfig.mode = 'chat';
-        responseText = `*${botName}*\nAntiEdit ENABLED\nMode: chat\nNotifications will be sent to current chat.`;
-    } else if (sub === 'both') {
         newConfig.enabled = true;
+        responseText = `*${botName}*\nMode: CHAT\nEdited messages sent to same chat.`;
+    } else if (sub === 'both' || sub === 'all') {
         newConfig.mode = 'both';
-        responseText = `*${botName}*\nAntiEdit ENABLED\nMode: both\nNotifications will be sent to both DM and current chat.`;
-    } else if (sub === 'off' || sub === 'disable') {
-        newConfig.enabled = false;
-        responseText = `*${botName}*\nAntiEdit DISABLED`;
+        newConfig.enabled = true;
+        responseText = `*${botName}*\nMode: BOTH\nEdited messages sent to owner and chat.`;
     } else {
-        responseText = `*${botName}*\nInvalid command!\nUse: private, chat, both, off, status`;
+        const toggle = parseToggleCommand(sub);
+        if (toggle === 'on') {
+            newConfig.enabled = true;
+            if (!newConfig.mode) newConfig.mode = 'private';
+            responseText = `*${botName}*\nAntiEdit ENABLED\nMode: ${newConfig.mode.toUpperCase()}`;
+        } else if (toggle === 'off') {
+            newConfig.enabled = false;
+            responseText = `*${botName}*\nAntiEdit DISABLED`;
+        } else {
+            responseText = `*${botName}*\nInvalid command!\nUse: on, off, private, chat, both, status`;
+        }
     }
 
-    // Save config if valid command
     if (responseText && !responseText.includes('Invalid')) {
         if (isGroup) {
             setGroupConfig(chatId, 'antiedit', newConfig);
@@ -120,6 +128,8 @@ function storeOriginalMessage(message) {
             text = msg.imageMessage.caption;
         } else if (msg.videoMessage?.caption) {
             text = msg.videoMessage.caption;
+        } else if (msg.documentMessage?.caption) {
+            text = msg.documentMessage.caption;
         }
         
         if (!text) return;
@@ -138,7 +148,7 @@ function storeOriginalMessage(message) {
         });
         
     } catch (err) {
-        console.error('Error storing original message:', err.message, 'Line:', err.stack?.split('\n')[1]);
+        console.error('Error storing original message:', err.message);
     }
 }
 
@@ -160,6 +170,9 @@ async function handleEditedMessage(sock, editedMessage) {
         const original = originalMessages.get(messageId);
         if (!original) return;
         
+        // Make sure the edit happened in the same chat as the original message
+        if (original.chatId !== chatId) return;
+        
         let newText = '';
         
         if (msg?.protocolMessage?.editedMessage) {
@@ -179,49 +192,25 @@ async function handleEditedMessage(sock, editedMessage) {
         
         if (!newText || newText === original.text) return;
         
-        const botName = getBotName();
-        const senderNumber = original.sender.split('@')[0];
-        const time = new Date().toLocaleString('en-US', {
-            hour12: true, hour: '2-digit', minute: '2-digit'
-        });
-        
-        const notificationText = `*${botName} - MESSAGE EDITED*\n\n` +
-                                `By: @${senderNumber}\n` +
-                                `Name: ${original.pushName}\n` +
-                                `Time: ${time}\n\n` +
-                                `*ORIGINAL MESSAGE:*\n${original.text.substring(0, 500)}${original.text.length > 500 ? '...' : ''}\n\n` +
-                                `*EDITED TO:*\n${newText.substring(0, 500)}${newText.length > 500 ? '...' : ''}`;
-        
-        const fake = createFakeContact(original.sender);
-        const mode = config.mode || 'private'; // Default to private
+        const mode = config.mode || 'private';
         const ownerNumber = sock.user.id.split(':')[0] + '@s.whatsapp.net';
         
-        // Send based on mode
-        if (mode === 'private') {
-            // Send to owner's DM only
-            await sock.sendMessage(ownerNumber, {
-                text: notificationText,
-                mentions: [original.sender]
-            }, { quoted: fake });
-        } else if (mode === 'chat') {
-            // Send to current chat only
-            await sock.sendMessage(chatId, {
-                text: notificationText,
-                mentions: [original.sender]
-            }, { quoted: fake });
-        } else if (mode === 'both') {
-            // Send to both
-            await sock.sendMessage(ownerNumber, {
-                text: notificationText,
-                mentions: [original.sender]
-            }, { quoted: fake });
-            
-            await sock.sendMessage(chatId, {
-                text: notificationText,
-                mentions: [original.sender]
-            }, { quoted: fake });
+        // Determine where to send the notification based on mode
+        const targets = [];
+        
+        if (mode === 'private' || mode === 'both') {
+            targets.push(ownerNumber);
         }
         
+        if ((mode === 'chat' || mode === 'both') && chatId !== ownerNumber) {
+            targets.push(chatId);
+        }
+        
+        if (targets.length === 0) return;
+        
+        await sendEditNotification(sock, original, newText, editedMessage, targets);
+        
+        // Update stored message with new text
         originalMessages.set(messageId, {
             ...original,
             text: newText,
@@ -229,12 +218,55 @@ async function handleEditedMessage(sock, editedMessage) {
         });
         
     } catch (err) {
-        console.error('Error handling edited message:', err.message, 'Line:', err.stack?.split('\n')[1]);
+        console.error('Error handling edited message:', err.message);
     }
 }
 
+async function sendEditNotification(sock, original, newText, editedMessage, targets) {
+    try {
+        const botName = getBotName();
+        const senderNumber = original.sender.split('@')[0];
+        const time = new Date().toLocaleString('en-US', {
+            hour12: true, hour: '2-digit', minute: '2-digit',
+            day: '2-digit', month: '2-digit', year: 'numeric'
+        });
+        
+        const fake = createFakeContact(original.sender);
+        
+        // Get group name if in group
+        let groupName = '';
+        if (original.chatId.endsWith('@g.us')) {
+            try {
+                const metadata = await sock.groupMetadata(original.chatId);
+                groupName = metadata.subject;
+            } catch {}
+        }
+        
+        const notificationText = `*${botName} - MESSAGE EDITED*\n\n` +
+                                `By: @${senderNumber}\n` +
+                                `Name: ${original.pushName}\n` +
+                                `Time: ${time}\n` +
+                                (groupName ? `Group: ${groupName}\n\n` : '\n') +
+                                `*ORIGINAL MESSAGE:*\n${original.text.substring(0, 500)}${original.text.length > 500 ? '...' : ''}\n\n` +
+                                `*EDITED TO:*\n${newText.substring(0, 500)}${newText.length > 500 ? '...' : ''}`;
+        
+        for (const target of targets) {
+            try {
+                await sock.sendMessage(target, {
+                    text: notificationText,
+                    mentions: [original.sender]
+                }, { quoted: fake });
+            } catch {}
+        }
+        
+    } catch (err) {
+        console.error('Error sending edit notification:', err.message);
+    }
+}
+
+// Clean old messages periodically
 setInterval(() => {
-    const cutoff = Date.now() - 86400000;
+    const cutoff = Date.now() - 86400000; // 24 hours
     for (const [key, value] of originalMessages.entries()) {
         if (value.timestamp < cutoff) {
             originalMessages.delete(key);

@@ -8,6 +8,9 @@ const { getPrefix, handleSetPrefixCommand } = require('./setprefix');
 const { getOwnerName, handleSetOwnerCommand } = require('./setowner');
 const { getGreetingMessage, formatTime, formatDate, getTimeGreeting } = require('../lib/greetings');
 
+// FIXED: Added missing imports
+const { getBotName } = require('../lib/fakeContact');
+
 function formatUptime(seconds) {
     const days = Math.floor(seconds / (24 * 60 * 60));
     seconds = seconds % (24 * 60 * 60);
@@ -53,7 +56,10 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     const systemUsedMemory = totalMemory - os.freemem();
     const prefix2 = getPrefix();
     let newOwner = getOwnerName();
+    
+    // FIXED: Now getBotName is properly imported
     const botName = getBotName();
+    
     const menuSettings = getMenuSettings();
 
     // Get personalized greeting for the user
@@ -361,23 +367,8 @@ async function loadThumbnail(thumbnailPath) {
     }
 }
 
-function createFakeContact(message) {
-    const phone = message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0];
-    return {
-        key: {
-            participants: "0@s.whatsapp.net",
-            remoteJid: "0@s.whatsapp.net",
-            fromMe: false
-        },
-        message: {
-            contactMessage: {
-                displayName: "DAVE-X",
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Dave-X;;;\nFN:DAVE-X\nTEL;waid=${phone}:${phone}\nEND:VCARD`
-            }
-        },
-        participant: "0@s.whatsapp.net"
-    };
-}
+// FIXED: Removed duplicate createFakeContact function and imported it instead
+const { createFakeContact } = require('../lib/fakeContact');
 
 async function sendMenuWithStyle(sock, chatId, message, menulist, menustyle, thumbnailBuffer, pushname) {
     const fkontak = createFakeContact(message);

@@ -71,10 +71,16 @@ async function handleAntitagCommand(sock, chatId, userMessage, senderId, isSende
 
 async function handleTagDetection(sock, message) {
     try {
+        // NULL CHECKS ADDED HERE
+        if (!message || !message.key || !message.key.remoteJid) {
+            console.log('[ANTITAG] Invalid message object received');
+            return false;
+        }
+        
         const chatId = message.key.remoteJid;
         const senderId = message.key.participant || message.key.remoteJid;
-        
-        if (!chatId.endsWith('@g.us')) return false;
+
+        if (!chatId || !chatId.endsWith('@g.us')) return false;
 
         const config = getGroupConfig(chatId, 'antitag');
         if (!config || !config.enabled) return false;
@@ -119,7 +125,7 @@ async function handleTagDetection(sock, message) {
                 mentions: [senderId]
             });
         }
-        
+
         return true;
     } catch (error) {
         console.error('Error in handleTagDetection:', error.message, 'Line:', error.stack?.split('\n')[1]);
@@ -130,7 +136,7 @@ async function handleTagDetection(sock, message) {
 // Keep detectTagall for backward compatibility
 async function detectTagall(sock, chatId, message, senderId) {
     try {
-        if (!chatId.endsWith('@g.us')) return false;
+        if (!chatId || !chatId.endsWith('@g.us')) return false;
 
         const config = getGroupConfig(chatId, 'antitag');
         if (!config || !config.enabled) return false;
@@ -175,7 +181,7 @@ async function detectTagall(sock, chatId, message, senderId) {
                 mentions: [senderId]
             });
         }
-        
+
         return true;
     } catch (error) {
         console.error('Error in detectTagall:', error.message, 'Line:', error.stack?.split('\n')[1]);
@@ -185,7 +191,7 @@ async function detectTagall(sock, chatId, message, senderId) {
 
 module.exports = {
     handleAntitagCommand,
-    handleTagDetection,  // Added this for main file compatibility
-    detectTagall,        // Keep for backward compatibility
+    handleTagDetection,
+    detectTagall,
     antitagStats
 };

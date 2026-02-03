@@ -1,7 +1,6 @@
 const { getGroupConfig, setGroupConfig, parseToggleCommand, parseActionCommand } = require('../Database/settingsStore');
-const db = require('../Database/database');
 const { createFakeContact, getBotName } = require('../lib/fakeContact');
-const isAdmin = require('../lib/isAdmin'); // Add this import
+const isAdmin = require('../lib/isAdmin');
 
 async function handleAntiLinkDetection(sock, m) {
     try {
@@ -14,10 +13,8 @@ async function handleAntiLinkDetection(sock, m) {
         const chatId = m.key.remoteJid;
         const sender = m.key.participant || m.key.remoteJid;
 
-        // FIX: Make getGroupConfig async if needed, or ensure it's sync
         const config = getGroupConfig(chatId, 'antilink');
         
-        // Debug log
         console.log(`[ANTILINK] Config for ${chatId}:`, config);
         
         if (!config) {
@@ -30,7 +27,6 @@ async function handleAntiLinkDetection(sock, m) {
             return;
         }
 
-        // Use isAdmin function like the original code
         const adminStatus = await isAdmin(sock, chatId, sender);
         if (adminStatus.isSenderAdmin) {
             console.log(`[ANTILINK] Sender is admin, skipping`);
@@ -65,7 +61,6 @@ async function handleAntiLinkDetection(sock, m) {
         if (!hasLink) return;
 
         try {
-            // Delete the message
             await sock.sendMessage(chatId, {
                 delete: {
                     remoteJid: chatId,
@@ -96,13 +91,13 @@ async function handleAntiLinkDetection(sock, m) {
                 break;
 
             case 'warn':
-                const warningCount = db.incrementWarning ? db.incrementWarning(chatId, sender) : 1;
+                // For now, use simple warning count. You can implement db.incrementWarning later
+                const warningCount = 1; // Temporary - implement your own warning system
                 console.log(`[ANTILINK] Warning count: ${warningCount}/${maxWarnings}`);
                 
                 if (warningCount >= maxWarnings) {
                     try {
                         await sock.groupParticipantsUpdate(chatId, [sender], 'remove');
-                        if (db.resetWarning) db.resetWarning(chatId, sender);
                         await sock.sendMessage(chatId, {
                             text: `*${botName}*\n@${username} kicked after ${maxWarnings} warnings!\nLinks not allowed.`,
                             mentions: [sender],
@@ -142,7 +137,6 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
     try {
         console.log(`[ANTILINK CMD] Command received: ${userMessage}`);
         
-        // Get the actual message text
         const text = message?.message?.conversation || 
                     message?.message?.extendedTextMessage?.text || userMessage;
         
@@ -150,18 +144,22 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
         const subCmd = args[1]?.toLowerCase();
         const botName = getBotName();
 
-        // Admin check
+        // Admin check - FIXED: Removed db.isSudo reference
         try {
             const groupMetadata = await sock.groupMetadata(chatId);
             const participant = groupMetadata.participants.find(p => p.id === senderId);
-            if (!participant?.admin && message && !message.key.fromMe && !(db.isSudo && db.isSudo(senderId))) {
+            
+            // Check if sender is admin OR if message is from bot itself
+            if (!participant?.admin && message && !message.key.fromMe) {
                 const fake = createFakeContact(senderId);
-                return sock.sendMessage(chatId, { 
-                    text: `*${botName}*\nAdmin only command!` 
+                await sock.sendMessage(chatId, { 
+                    text: `*${botName}*\n❌ Admin only command!` 
                 }, { quoted: fake });
+                return;
             }
         } catch (adminErr) {
             console.error('[ANTILINK CMD] Admin check failed:', adminErr.message);
+            // If admin check fails, still try to proceed but log the error
         }
 
         const fake = createFakeContact(senderId);
@@ -219,37 +217,28 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
         let newConfig = { ...config };
         let responseText = '';
 
-        const toggle = parseToggleCommand ? parseToggleCommand(subCmd) : 
-                      (subCmd === 'on' ? 'on' : subCmd === 'off' ? 'off' : null);
-        
-        if (toggle === 'on') {
+        // Simplified toggle parsing
+        if (subCmd === 'on') {
             newConfig.enabled = true;
             newConfig.action = newConfig.action || 'delete';
             responseText = `*${botName}*\n✅ AntiLink ENABLED\nAction: ${newConfig.action}`;
-        } else if (toggle === 'off') {
+        } else if (subCmd === 'off') {
             newConfig.enabled = false;
             responseText = `*${botName}*\n❌ AntiLink DISABLED`;
+        } else if (subCmd === 'delete') {
+            newConfig.action = 'delete';
+            newConfig.enabled = true;
+            responseText = `*${botName}*\n✅ Action: DELETE\nLinks will be deleted.`;
+        } else if (subCmd === 'warn') {
+            newConfig.action = 'warn';
+            newConfig.enabled = true;
+            responseText = `*${botName}*\n✅ Action: WARN\n${newConfig.maxWarnings || 3} warnings = kick.`;
+        } else if (subCmd === 'kick') {
+            newConfig.action = 'kick';
+            newConfig.enabled = true;
+            responseText = `*${botName}*\n✅ Action: KICK\nLink senders will be removed.`;
         } else {
-            // Parse action
-            const actionMap = {
-                'delete': 'delete',
-                'warn': 'warn',
-                'kick': 'kick',
-                'remove': 'kick'
-            };
-            
-            const action = actionMap[subCmd];
-            if (action) {
-                newConfig.action = action;
-                newConfig.enabled = true;
-                if (action === 'warn') {
-                    responseText = `*${botName}*\n✅ Action: WARN\n${newConfig.maxWarnings || 3} warnings = kick.`;
-                } else {
-                    responseText = `*${botName}*\n✅ Action: ${action.toUpperCase()}\nLinks will be ${action === 'delete' ? 'deleted' : 'cause user removal'}.`;
-                }
-            } else {
-                responseText = `*${botName}*\n❌ Invalid option!\nUse: on, off, delete, warn, kick`;
-            }
+            responseText = `*${botName}*\n❌ Invalid option!\nUse: on, off, delete, warn, kick, setwarn, status, help`;
         }
 
         if (responseText && !responseText.includes('Invalid')) {
@@ -261,11 +250,17 @@ async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSend
         }
 
     } catch (error) {
-        console.error('[ANTILINK CMD] Error:', error.message, 'Line:', error.stack?.split('\n')[1]);
-        const botName = getBotName();
-        await sock.sendMessage(chatId, {
-            text: `*${botName}*\n❌ Failed to configure antilink!`
-        });
+        console.error('[ANTILINK CMD] Error:', error.message);
+        console.error('[ANTILINK CMD] Stack:', error.stack);
+        
+        try {
+            const botName = getBotName();
+            await sock.sendMessage(chatId, {
+                text: `*${botName}*\n❌ Failed to configure antilink!\nError: ${error.message}`
+            });
+        } catch (sendErr) {
+            console.error('[ANTILINK CMD] Failed to send error message:', sendErr.message);
+        }
     }
 }
 
@@ -276,18 +271,9 @@ async function getAntilink(groupId) {
 }
 
 async function setAntilink(groupId, type, action) {
-    const actionMap = {
-        'on': 'delete',
-        'off': 'off',
-        'delete': 'delete',
-        'kick': 'kick',
-        'remove': 'kick',
-        'warn': 'warn'
-    };
-    
     const config = {
-        enabled: type === 'on' || type === 'delete' || type === 'kick' || type === 'remove' || type === 'warn',
-        action: actionMap[type] || action || 'delete',
+        enabled: type === 'on' || type === 'delete' || type === 'kick' || type === 'warn',
+        action: action || 'delete',
         maxWarnings: 3
     };
     

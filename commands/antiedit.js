@@ -163,18 +163,17 @@ async function antieditCommand(sock, chatId, message, senderId) {
 function storeOriginalMessage(message) {
     try {
         if (!message?.key?.id) return;
-
-        // Get GLOBAL config (not per chat)
-        const config = getOwnerConfig('antiedit') || { enabled: false };
-
-        if (!config?.enabled) return;
-
+        
         const chatId = message.key.remoteJid;
-
+        const isGroup = chatId.endsWith('@g.us');
+        const config = isGroup ? getGroupConfig(chatId, 'antiedit') : getOwnerConfig('antiedit');
+        
+        if (!config?.enabled) return;
+        
         let text = '';
         const msg = message.message;
         if (!msg) return;
-
+        
         if (msg.conversation) {
             text = msg.conversation;
         } else if (msg.extendedTextMessage?.text) {
@@ -183,17 +182,15 @@ function storeOriginalMessage(message) {
             text = msg.imageMessage.caption;
         } else if (msg.videoMessage?.caption) {
             text = msg.videoMessage.caption;
-        } else if (msg.documentMessage?.caption) {
-            text = msg.documentMessage.caption;
         }
-
+        
         if (!text) return;
-
+        
         if (originalMessages.size >= MAX_STORED_MESSAGES) {
             const firstKey = originalMessages.keys().next().value;
             originalMessages.delete(firstKey);
         }
-
+        
         originalMessages.set(message.key.id, {
             text,
             sender: message.key.participant || message.key.remoteJid,
@@ -201,10 +198,9 @@ function storeOriginalMessage(message) {
             timestamp: Date.now(),
             pushName: message.pushName || 'Unknown'
         });
-
+        
     } catch (err) {
-        // Silent error
-        console.error('Error storing original message:', err.message);
+        console.error('Error storing original message:', err.message, 'Line:', err.stack?.split('\n')[1]);
     }
 }
 
@@ -300,11 +296,9 @@ async function sendEditNotification(sock, original, newText, targets) {
         const notificationText = `*${botName} - MESSAGE EDITED*\n\n` +
                                 `By: @${senderNumber}\n` +
                                 `Name: ${original.pushName}\n` +
-                                `Time: ${time}\n` +
-                                (groupName ? `Group: ${groupName}\n\n` : '\n') +
+                                `Time: ${time}\n\n` +
                                 `*ORIGINAL MESSAGE:*\n${original.text.substring(0, 500)}${original.text.length > 500 ? '...' : ''}\n\n` +
                                 `*EDITED TO:*\n${newText.substring(0, 500)}${newText.length > 500 ? '...' : ''}`;
-
         for (const target of targets) {
             try {
                 await sock.sendMessage(target, {

@@ -1,4 +1,4 @@
-const { getOwnerConfig, setOwnerConfig, parseToggleCommand } = require('../Database/settingsStore');
+const { getOwnerConfig, setOwnerConfig } = require('../Database/settingsStore');
 const db = require('../Database/database');
 const { createFakeContact, getBotName } = require('../lib/fakeContact');
 
@@ -15,11 +15,10 @@ async function isAuthorized(sock, message) {
     }
 }
 
-async function antieditCommand(sock, chatId, message, match) {
+async function antieditCommand(sock, chatId, message, senderId) {
     const botName = getBotName();
-    const senderId = message.key.participant || message.key.remoteJid;
     const fake = createFakeContact(senderId);
-    
+
     // ONLY OWNER CAN CONTROL ANTEDIT
     if (!await isAuthorized(sock, message)) {
         return sock.sendMessage(chatId, { 
@@ -27,75 +26,135 @@ async function antieditCommand(sock, chatId, message, match) {
         }, { quoted: fake });
     }
 
+    // Get message text
+    const userMessage = message.message?.conversation || 
+                       message.message?.extendedTextMessage?.text || '';
+    
+    // Parse command arguments
+    const args = userMessage.trim().split(/\s+/);
+    const command = args[1]?.toLowerCase(); // args[0] is "antiedit", args[1] is the action
+
     // Get GLOBAL config from owner settings
     const config = getOwnerConfig('antiedit') || { enabled: false, mode: 'private' };
 
-    if (!match) {
+    if (!command) {
         const text = `*${botName} ANTIEDIT*\n\n` +
-                    `Status: ${config.enabled ? 'ON' : 'OFF'}\n` +
+                    `Status: ${config.enabled ? '✅ ON' : '❌ OFF'}\n` +
                     `Mode: ${config.mode || 'private'}\n` +
                     `Scope: GLOBAL (all chats)\n` +
                     `Tracked messages: ${originalMessages.size}\n\n` +
                     `*Commands:*\n` +
-                    `.antiedit on/off\n` +
-                    `.antiedit private - Send to owner only (global)\n` +
-                    `.antiedit chat - Send to same chat (global)\n` +
-                    `.antiedit both - Send to both (global)\n` +
+                    `.antiedit on - Enable antiedit\n` +
+                    `.antiedit off - Disable antiedit\n` +
+                    `.antiedit private - Send to owner only\n` +
+                    `.antiedit chat - Send to same chat\n` +
+                    `.antiedit both - Send to both\n` +
                     `.antiedit clean - Clear storage\n` +
                     `.antiedit stats - Show statistics`;
-        
+
         await sock.sendMessage(chatId, { text }, { quoted: fake });
         return;
     }
 
-    const command = match.toLowerCase().trim();
     let responseText = '';
     let newConfig = { ...config };
 
-    const toggle = parseToggleCommand(command);
-    if (toggle === 'on') {
-        newConfig.enabled = true;
-        newConfig.mode = newConfig.mode || 'private';
-        responseText = `*${botName}*\n✅ AntiEdit ENABLED\nMode: ${newConfig.mode.toUpperCase()}\nScope: GLOBAL`;
-    } else if (toggle === 'off') {
-        newConfig.enabled = false;
-        responseText = `*${botName}*\n❌ AntiEdit DISABLED`;
-    } else if (command === 'private' || command === 'prvt' || command === 'priv') {
-        newConfig.mode = 'private';
-        newConfig.enabled = true;
-        responseText = `*${botName}*\n✅ AntiEdit ENABLED\nMode: PRIVATE\nEdited messages sent to OWNER only (from all chats)`;
-    } else if (command === 'chat' || command === 'cht') {
-        newConfig.mode = 'chat';
-        newConfig.enabled = true;
-        responseText = `*${botName}*\n✅ AntiEdit ENABLED\nMode: CHAT\nEdited messages sent to SAME CHAT (for all chats)`;
-    } else if (command === 'both' || command === 'all') {
-        newConfig.mode = 'both';
-        newConfig.enabled = true;
-        responseText = `*${botName}*\n✅ AntiEdit ENABLED\nMode: BOTH\nEdited messages sent to OWNER + SAME CHAT (for all chats)`;
-    } else if (command === 'clean' || command === 'clear') {
-        originalMessages.clear();
-        responseText = `*${botName}*\n🧹 Cleaned: All tracked messages cleared`;
-    } else if (command === 'stats' || command === 'status') {
-        const size = originalMessages.size;
-        const oldest = Array.from(originalMessages.values()).sort((a, b) => a.timestamp - b.timestamp)[0];
-        const newest = Array.from(originalMessages.values()).sort((a, b) => b.timestamp - a.timestamp)[0];
-        const avgAge = oldest && newest ? Math.round((newest.timestamp - oldest.timestamp) / (1000 * 60 * 60)) : 0;
-        
-        responseText = `*${botName} ANTIEDIT STATS*\n\n` +
-                      `Messages tracked: ${size}\n` +
-                      `Oldest: ${oldest ? new Date(oldest.timestamp).toLocaleTimeString() : 'N/A'}\n` +
-                      `Newest: ${newest ? new Date(newest.timestamp).toLocaleTimeString() : 'N/A'}\n` +
-                      `Avg age: ${avgAge} hours\n` +
-                      `Status: ${config.enabled ? 'ACTIVE' : 'INACTIVE'}\n` +
-                      `Mode: ${config.mode || 'private'}\n` +
-                      `Scope: GLOBAL`;
-    } else {
-        responseText = `*${botName}*\n❌ Invalid command!\nUse: on, off, private, chat, both, clean, stats`;
-    }
+    switch (command) {
+        case 'on':
+            if (config.enabled) {
+                responseText = `*${botName}*\n❌ AntiEdit already ON!\nCurrent mode: ${config.mode || 'private'}`;
+            } else {
+                newConfig.enabled = true;
+                newConfig.mode = newConfig.mode || 'private';
+                setOwnerConfig('antiedit', newConfig);
+                responseText = `*${botName}*\n✅ AntiEdit ENABLED\nMode: ${newConfig.mode.toUpperCase()}\nScope: GLOBAL`;
+            }
+            break;
 
-    if (responseText && !responseText.includes('Invalid')) {
-        // Save to OWNER config (global setting)
-        setOwnerConfig('antiedit', newConfig);
+        case 'off':
+            if (!config.enabled) {
+                responseText = `*${botName}*\n❌ AntiEdit already OFF!`;
+            } else {
+                newConfig.enabled = false;
+                setOwnerConfig('antiedit', newConfig);
+                responseText = `*${botName}*\n✅ AntiEdit DISABLED`;
+            }
+            break;
+
+        case 'private':
+            newConfig.enabled = true;
+            newConfig.mode = 'private';
+            setOwnerConfig('antiedit', newConfig);
+            responseText = `*${botName}*\n✅ Mode: PRIVATE\nEdited messages sent to OWNER only (from all chats)`;
+            break;
+
+        case 'chat':
+            newConfig.enabled = true;
+            newConfig.mode = 'chat';
+            setOwnerConfig('antiedit', newConfig);
+            responseText = `*${botName}*\n✅ Mode: CHAT\nEdited messages sent to SAME CHAT (for all chats)`;
+            break;
+
+        case 'both':
+            newConfig.enabled = true;
+            newConfig.mode = 'both';
+            setOwnerConfig('antiedit', newConfig);
+            responseText = `*${botName}*\n✅ Mode: BOTH\nEdited messages sent to OWNER + SAME CHAT (for all chats)`;
+            break;
+
+        case 'clean':
+        case 'clear':
+            originalMessages.clear();
+            responseText = `*${botName}*\n🧹 Cleaned: All tracked messages cleared`;
+            break;
+
+        case 'stats':
+        case 'status':
+            const size = originalMessages.size;
+            const messages = Array.from(originalMessages.values());
+            const oldest = messages.sort((a, b) => a.timestamp - b.timestamp)[0];
+            const newest = messages.sort((a, b) => b.timestamp - a.timestamp)[0];
+            const avgAge = oldest && newest ? Math.round((newest.timestamp - oldest.timestamp) / (1000 * 60 * 60)) : 0;
+
+            responseText = `*${botName} ANTIEDIT STATS*\n\n` +
+                          `Messages tracked: ${size}\n` +
+                          `Oldest: ${oldest ? new Date(oldest.timestamp).toLocaleTimeString() : 'N/A'}\n` +
+                          `Newest: ${newest ? new Date(newest.timestamp).toLocaleTimeString() : 'N/A'}\n` +
+                          `Avg age: ${avgAge} hours\n` +
+                          `Status: ${config.enabled ? '✅ ACTIVE' : '❌ INACTIVE'}\n` +
+                          `Mode: ${config.mode || 'private'}\n` +
+                          `Scope: GLOBAL`;
+            break;
+
+        case 'prvt':
+        case 'priv':
+            // Alias for private
+            newConfig.enabled = true;
+            newConfig.mode = 'private';
+            setOwnerConfig('antiedit', newConfig);
+            responseText = `*${botName}*\n✅ Mode: PRIVATE\nEdited messages sent to OWNER only (from all chats)`;
+            break;
+
+        case 'cht':
+            // Alias for chat
+            newConfig.enabled = true;
+            newConfig.mode = 'chat';
+            setOwnerConfig('antiedit', newConfig);
+            responseText = `*${botName}*\n✅ Mode: CHAT\nEdited messages sent to SAME CHAT (for all chats)`;
+            break;
+
+        case 'all':
+            // Alias for both
+            newConfig.enabled = true;
+            newConfig.mode = 'both';
+            setOwnerConfig('antiedit', newConfig);
+            responseText = `*${botName}*\n✅ Mode: BOTH\nEdited messages sent to OWNER + SAME CHAT (for all chats)`;
+            break;
+
+        default:
+            responseText = `*${botName}*\n❌ Invalid command!\n\n` +
+                          `Use: on, off, private, chat, both, clean, stats`;
+            break;
     }
 
     await sock.sendMessage(chatId, { text: responseText }, { quoted: fake });
@@ -107,11 +166,11 @@ function storeOriginalMessage(message) {
 
         // Get GLOBAL config (not per chat)
         const config = getOwnerConfig('antiedit') || { enabled: false };
-        
+
         if (!config?.enabled) return;
 
         const chatId = message.key.remoteJid;
-        
+
         let text = '';
         const msg = message.message;
         if (!msg) return;
@@ -144,6 +203,7 @@ function storeOriginalMessage(message) {
         });
 
     } catch (err) {
+        // Silent error
         console.error('Error storing original message:', err.message);
     }
 }
@@ -152,12 +212,11 @@ async function handleEditedMessage(sock, editedMessage) {
     try {
         // Get GLOBAL config
         const config = getOwnerConfig('antiedit') || { enabled: false, mode: 'private' };
-        
+
         if (!config?.enabled) return;
 
         const chatId = editedMessage.key.remoteJid;
-        const isGroup = chatId.endsWith('@g.us');
-        
+
         let messageId = editedMessage.key.id;
 
         const msg = editedMessage.message;
@@ -194,11 +253,11 @@ async function handleEditedMessage(sock, editedMessage) {
 
         // Get notification targets based on GLOBAL mode
         const targets = [];
-        
+
         if (mode === 'private' || mode === 'both') {
             targets.push(ownerNumber);
         }
-        
+
         if ((mode === 'chat' || mode === 'both') && chatId !== ownerNumber) {
             targets.push(chatId);
         }
@@ -262,13 +321,13 @@ async function sendEditNotification(sock, original, newText, targets) {
 
 // Clean old messages periodically
 setInterval(() => {
-    const cutoff = Date.now() - 86400000;
+    const cutoff = Date.now() - 86400000; // 24 hours
     for (const [key, value] of originalMessages.entries()) {
         if (value.timestamp < cutoff) {
             originalMessages.delete(key);
         }
     }
-}, 3600000);
+}, 3600000); // Every hour
 
 module.exports = {
     antieditCommand,

@@ -1,12 +1,13 @@
+const isAdmin = require('../lib/isAdmin');
+const { getPrefix } = require('./setprefix');
 const { getGroupConfig, setGroupConfig, parseToggleCommand, parseActionCommand } = require('../Database/settingsStore');
 const db = require('../Database/database');
 const { createFakeContact, getBotName } = require('../lib/fakeContact');
 
-// Update the getAntilink and setAntilink functions to use database
+// Keep the same function signatures but make them synchronous
 function getAntilink(chatId) {
     try {
         const config = getGroupConfig(chatId, 'antilink');
-        // config will be either the object or false/null if not set
         if (config && typeof config === 'object') {
             return {
                 enabled: Boolean(config.enabled),
@@ -30,17 +31,14 @@ function setAntilink(chatId, subCmd, action) {
             // Handle the old style: subCmd determines everything
             switch(subCmd.toLowerCase()) {
                 case 'on':
-                case 'enable':
                     enabled = true;
                     finalAction = 'delete';
                     break;
                 case 'off':
-                case 'disable':
                     enabled = false;
                     finalAction = 'off';
                     break;
                 case 'delete':
-                case 'del':
                     enabled = true;
                     finalAction = 'delete';
                     break;
@@ -76,24 +74,17 @@ async function handleAntiLinkDetection(sock, m) {
         const chatId = m.key.remoteJid;
         const sender = m.key.participant || m.key.remoteJid;
 
-        const config = getAntilink(chatId);
+        const config = getAntilink(chatId); // REMOVED AWAIT
+        // Fix: Handle null return by providing default values
+        if (!config) return;
         if (!config.enabled) return;
-        if (config.action === 'off') return;
 
-        // Check bot admin status and user admin status like antibadword does
-        try {
-            const groupMetadata = await sock.groupMetadata(chatId);
-            const botId = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-            const bot = groupMetadata.participants.find(p => p.id === botId);
-            if (!bot?.admin) return;
+        const antilinkMode = config.action || 'delete';
+        if (antilinkMode === 'off') return;
 
-            const participant = groupMetadata.participants.find(p => p.id === sender);
-            if (participant?.admin) return;
-            if (db.isSudo(sender)) return;
-        } catch (err) {
-            console.error('Error checking group metadata:', err);
-            return;
-        }
+        const adminStatus = await isAdmin(sock, chatId, sender);
+        if (adminStatus.isSenderAdmin) return;
+        if (!adminStatus.isBotAdmin) return;
 
         let text = "";
         if (m.message.conversation) {
@@ -122,15 +113,15 @@ async function handleAntiLinkDetection(sock, m) {
 
         const username = sender.split('@')[0];
         await sock.sendMessage(chatId, {
-            text: `┌─❖\n│「 ANTI-LINK 」\n└┬❖\n   │✑ @${username}, no links allowed!\n   │✑ Message deleted.\n   └───────────────┈ ⳹`,
+            text: `┌─❖\n│「 DAVE-X Antilink 」\n└┬❖\n   │✑ @${username}, no links allowed!\n   │✑ Message deleted.\n   └───────────────┈ ⳹`,
             mentions: [sender],
         });
 
-        if (config.action === 'kick') {
+        if (antilinkMode === 'kick' || antilinkMode === 'remove') {
             try {
                 await sock.groupParticipantsUpdate(chatId, [sender], 'remove');
                 await sock.sendMessage(chatId, {
-                    text: `┌─❖\n│「 ANTI-LINK 」\n└┬❖\n   │✑ @${username} kicked for links.\n   └───────────────┈ ⳹`,
+                    text: `┌─❖\n│「 DAVE-X 」\n└┬❖\n   │✑ @${username} kicked for links.\n   └───────────────┈ ⳹`,
                     mentions: [sender],
                 });
             } catch (err) {
@@ -142,110 +133,68 @@ async function handleAntiLinkDetection(sock, m) {
     }
 }
 
-async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSenderAdmin, message) {
+async function handleAntilinkCommand(sock, chatId, userMessage, senderId, isSenderAdmin) {
     try {
         const args = userMessage.split(' ');
         const subCmd = args[1]?.toLowerCase();
-        const botName = getBotName();
-
-        // Check admin permissions like antibadword does
-        try {
-            const groupMetadata = await sock.groupMetadata(chatId);
-            const participant = groupMetadata.participants.find(p => p.id === senderId);
-            if (!participant?.admin && !message.key.fromMe && !db.isSudo(senderId)) {
-                const fake = createFakeContact(senderId);
-                return sock.sendMessage(chatId, { 
-                    text: `*${botName}*\nAdmin only command!` 
-                }, { quoted: fake });
-            }
-        } catch (err) {
-            console.error('Error checking admin status:', err);
-            const fake = createFakeContact(senderId);
-            return sock.sendMessage(chatId, { 
-                text: `*${botName}*\nError checking permissions!` 
-            }, { quoted: fake });
-        }
-
-        const fake = createFakeContact(senderId);
+        const prefix = getPrefix();
 
         if (!subCmd || subCmd === 'help') {
             await sock.sendMessage(chatId, {
-                text: `*${botName} ANTI-LINK*\n\n` +
-                     `Usage:\n` +
-                     `• .antilink on - Enable anti-link\n` +
-                     `• .antilink off - Disable anti-link\n` +
-                     `• .antilink delete - Delete links only\n` +
-                     `• .antilink kick - Kick users who send links\n` +
-                     `• .antilink status - Check status\n` +
-                     `• .antilink help - Show this help`
-            }, { quoted: fake });
+                text: `┌─❖\n│「 DAVE-X Anti-Link 」\n├❖\n│  *Usage:*\n│  • ${prefix}antilink on - Enable anti-link\n│  • ${prefix}antilink off - Disable anti-link\n│  • ${prefix}antilink delete - Delete links only\n│  • ${prefix}antilink kick - Kick users who send links\n│  • ${prefix}antilink status - Check status\n│  • ${prefix}antilink help - Show this help\n└───────────────┈ ⳹`
+            });
             return;
         }
 
         if (subCmd === 'status') {
-            const config = getAntilink(chatId);
+            const config = getAntilink(chatId); // REMOVED AWAIT
+            // Fix: Handle null config
+            if (!config) {
+                await sock.sendMessage(chatId, {
+                    text: `┌─❖\n│「 DAVE-X Anti-Link Status 」\n├❖\n│  Status: ❌ Disabled\n│  Action: delete\n└───────────────┈ ⳹`
+                });
+                return;
+            }
+            
             const status = config.enabled ? '✅ Enabled' : '❌ Disabled';
             const action = config.action || 'delete';
             
             await sock.sendMessage(chatId, {
-                text: `*${botName} ANTI-LINK STATUS*\n\n` +
-                     `Status: ${status}\n` +
-                     `Action: ${action}`
-            }, { quoted: fake });
+                text: `┌─❖\n│「 DAVE-X Anti-Link Status 」\n├❖\n│  Status: ${status}\n│  Action: ${action}\n└───────────────┈ ⳹`
+            });
             return;
         }
 
-        // Use enhanced command parsing
-        const parsedAction = parseActionCommand(subCmd);
-        const parsedToggle = parseToggleCommand(subCmd);
-        
-        let actionToSet = subCmd;
-        if (parsedAction) {
-            actionToSet = parsedAction;
-        } else if (parsedToggle === 'on') {
-            actionToSet = 'on';
-        } else if (parsedToggle === 'off') {
-            actionToSet = 'off';
-        }
-
-        const validActions = ['on', 'off', 'delete', 'kick'];
-        if (!validActions.includes(actionToSet)) {
+        const validActions = ['on', 'off', 'delete', 'kick', 'remove'];
+        if (!validActions.includes(subCmd)) {
             await sock.sendMessage(chatId, {
-                text: `*${botName}*\nInvalid option! Use: on, off, delete, kick, status, or help`
-            }, { quoted: fake });
+                text: '❌ Invalid option! Use: on, off, delete, kick, status, or help'
+            });
             return;
         }
 
         // Use the setAntilink function
-        const success = setAntilink(chatId, actionToSet);
+        const action = subCmd === 'on' ? 'delete' : (subCmd === 'off' ? 'off' : subCmd);
+        const enabled = subCmd === 'on' || subCmd === 'delete' || subCmd === 'kick' || subCmd === 'remove';
+        
+        const success = setAntilink(chatId, subCmd, action); // REMOVED AWAIT
         
         if (success) {
-            const config = getAntilink(chatId);
-            const enabled = config.enabled;
-            const action = config.action;
-            
-            const actionText = action === 'kick' ? 'Delete + Kick User' : 
-                              action === 'delete' ? 'Delete Message Only' : 'Disabled';
-            
             await sock.sendMessage(chatId, {
-                text: `*${botName} ANTI-LINK*\n\n` +
-                     `✅ Anti-link ${enabled ? 'enabled' : 'disabled'}!\n` +
-                     `Mode: ${actionText}`
-            }, { quoted: fake });
+                text: `┌─❖\n│「 DAVE-X Anti-Link 」\n├❖\n│  ✅ Anti-link ${enabled ? 'enabled' : 'disabled'}!\n│  Action: ${action}\n└───────────────┈ ⳹`
+            });
         } else {
             await sock.sendMessage(chatId, {
-                text: `*${botName}*\nFailed to configure anti-link!`
-            }, { quoted: fake });
+                text: '❌ Failed to configure anti-link!'
+            });
         }
 
     } catch (error) {
         console.error('Error in handleAntilinkCommand:', error);
-        const fake = createFakeContact(message?.key?.participant);
-        const botName = getBotName();
         try {
-            await sock.sendMessage(chatId, { 
-                text: `*${botName}*\nFailed to configure anti-link!\nError: ${error.message}` 
-            }, { quoted: fake });
+            await sock.sendMessage(chatId, {
+                text: '❌ Failed to configure anti-link!'
+            });
         } catch (err) {
             console.error('Failed to send error message:', err);
         }

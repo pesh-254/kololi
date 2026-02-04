@@ -48,10 +48,35 @@ function setMenuStyle(newStyle) {
     }
 }
 
+// NEW: Get menu image from menu settings
+function getMenuImage() {
+    try {
+        const config = getOwnerConfig('menuSettings');
+        return config?.menuImage || '';
+    } catch (error) {
+        console.error('Error getting menu image:', error.message, 'Line:', error.stack?.split('\n')[1]);
+        return '';
+    }
+}
+
+// NEW: Set menu image in menu settings
+function setMenuImage(imagePath) {
+    try {
+        const config = getOwnerConfig('menuSettings') || {};
+        config.menuImage = imagePath;
+        setOwnerConfig('menuSettings', config);
+        return true;
+    } catch (error) {
+        console.error('Error setting menu image:', error.message, 'Line:', error.stack?.split('\n')[1]);
+        return false;
+    }
+}
+
 function getMenuSettings() {
     try {
         return getOwnerConfig('menuSettings') || {
             menuStyle: DEFAULT_MENU_STYLE,
+            menuImage: '',  // NEW: Add menuImage to default settings
             showMemory: true,
             showUptime: true,
             showPluginCount: true,
@@ -61,6 +86,7 @@ function getMenuSettings() {
         console.error('Error getting menu settings:', error.message, 'Line:', error.stack?.split('\n')[1]);
         return {
             menuStyle: DEFAULT_MENU_STYLE,
+            menuImage: '',  // NEW
             showMemory: true,
             showUptime: true,
             showPluginCount: true,
@@ -122,6 +148,7 @@ async function menuConfigCommand(sock, chatId, message) {
 
             const helpText = `*${botName} MENU SETTINGS*\n\n` +
                 `*Current Style:* ${config.menuStyle}\n` +
+                `*Menu Image:* ${config.menuImage ? 'Set ✓' : 'Not set'}\n` +
                 `*Show Memory:* ${config.showMemory ? 'ON' : 'OFF'}\n` +
                 `*Show Uptime:* ${config.showUptime ? 'ON' : 'OFF'}\n` +
                 `*Show Plugins:* ${config.showPluginCount ? 'ON' : 'OFF'}\n` +
@@ -129,11 +156,13 @@ async function menuConfigCommand(sock, chatId, message) {
                 `*Available Styles:*\n${stylesList}\n` +
                 `*Commands:*\n` +
                 `.menustyle <1-6> - Set menu style\n` +
+                `.menustyle setimage - Set menu image (reply to image)\n` +
+                `.menustyle removeimage - Remove menu image\n` +
                 `.menustyle memory - Toggle memory display\n` +
                 `.menustyle uptime - Toggle uptime display\n` +
                 `.menustyle plugins - Toggle plugin count\n` +
                 `.menustyle progress - Toggle progress bar`;
-            
+
             await sock.sendMessage(chatId, { text: helpText }, { quoted: fake });
             return;
         }
@@ -145,6 +174,49 @@ async function menuConfigCommand(sock, chatId, message) {
                 responseText = `*${botName}*\nMenu style set to: ${MENU_STYLES[action]}`;
             } else {
                 responseText = `*${botName}*\nFailed to set menu style`;
+            }
+        } else if (action === 'setimage') {
+            // Handle setting menu image
+            const quotedMessage = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+            
+            if (quotedMessage?.imageMessage) {
+                try {
+                    // You need to import downloadContentFromMessage
+                    const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+                    const fs = require('fs');
+                    const path = require('path');
+                    
+                    const stream = await downloadContentFromMessage(quotedMessage.imageMessage, 'image');
+                    let buffer = Buffer.from([]);
+                    for await (const chunk of stream) {
+                        buffer = Buffer.concat([buffer, chunk]);
+                    }
+
+                    const assetsDir = path.join(__dirname, '..', 'assets', 'menu');
+                    if (!fs.existsSync(assetsDir)) {
+                        fs.mkdirSync(assetsDir, { recursive: true });
+                    }
+
+                    const imagePath = path.join(assetsDir, 'custom-menu.jpg');
+                    fs.writeFileSync(imagePath, buffer);
+
+                    if (setMenuImage(imagePath)) {
+                        responseText = `*${botName}*\nMenu image has been set successfully!`;
+                    } else {
+                        responseText = `*${botName}*\nFailed to save menu image setting.`;
+                    }
+                } catch (error) {
+                    console.error('Error setting menu image:', error);
+                    responseText = `*${botName}*\nFailed to download image: ${error.message}`;
+                }
+            } else {
+                responseText = `*${botName}*\nPlease reply to an image message!\nUsage: .menustyle setimage (reply to image)`;
+            }
+        } else if (action === 'removeimage') {
+            if (setMenuImage('')) {
+                responseText = `*${botName}*\nMenu image has been removed. Using default thumbnails.`;
+            } else {
+                responseText = `*${botName}*\nFailed to remove menu image.`;
             }
         } else if (action === 'memory') {
             const result = toggleMenuSetting('showMemory');
@@ -159,7 +231,7 @@ async function menuConfigCommand(sock, chatId, message) {
             const result = toggleMenuSetting('showProgressBar');
             responseText = `*${botName}*\nProgress bar: ${result ? 'ON' : 'OFF'}`;
         } else {
-            responseText = `*${botName}*\nInvalid option! Use: 1-6, memory, uptime, plugins, progress`;
+            responseText = `*${botName}*\nInvalid option! Use: 1-6, setimage, removeimage, memory, uptime, plugins, progress`;
         }
 
         await sock.sendMessage(chatId, { text: responseText }, { quoted: fake });
@@ -171,6 +243,8 @@ async function menuConfigCommand(sock, chatId, message) {
 module.exports = {
     getMenuStyle,
     setMenuStyle,
+    getMenuImage,  // NEW: Export this
+    setMenuImage,  // NEW: Export this
     getMenuSettings,
     setMenuSettings,
     toggleMenuSetting,

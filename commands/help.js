@@ -2,14 +2,14 @@ const settings = require('../settings');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { getMenuStyle, getMenuSettings, MENU_STYLES } = require('./menuSettings');
+const { getMenuStyle, getMenuSettings, MENU_STYLES, getMenuImage } = require('./menuSettings');
 const { generateWAMessageFromContent } = require('@whiskeysockets/baileys');
 const { getPrefix, handleSetPrefixCommand } = require('./setprefix');
 const { getOwnerName, handleSetOwnerCommand } = require('./setowner');
 const { getGreetingMessage, formatTime, formatDate, getTimeGreeting } = require('../lib/greetings');
 
 // FIXED: Added missing imports
-const { getBotName } = require('../lib/fakeContact');
+const { getBotName, createFakeContact } = require('../lib/fakeContact');
 
 function formatUptime(seconds) {
     const days = Math.floor(seconds / (24 * 60 * 60));
@@ -56,10 +56,10 @@ const generateMenu = (pushname, currentMode, hostName, ping, uptimeFormatted, pr
     const systemUsedMemory = totalMemory - os.freemem();
     const prefix2 = getPrefix();
     let newOwner = getOwnerName();
-    
+
     // FIXED: Now getBotName is properly imported
     const botName = getBotName();
-    
+
     const menuSettings = getMenuSettings();
 
     // Get personalized greeting for the user
@@ -358,7 +358,22 @@ async function loadThumbnail(thumbnailPath) {
         if (fs.existsSync(thumbnailPath)) {
             return fs.readFileSync(thumbnailPath);
         } else {
-            console.log(`Thumbnail not found: ${thumbnailPath}, using fallback`);
+            console.log(`Thumbnail not found: ${thumbnailPath}`);
+            // Use a random thumbnail from assets as fallback
+            const thumbnailFiles = [
+                'menu1.jpg',
+                'menu2.jpg', 
+                'menu3.jpg',
+                'menu4.jpg',
+                'menu5.jpg'
+            ];
+            const randomThumbFile = thumbnailFiles[Math.floor(Math.random() * thumbnailFiles.length)];
+            const fallbackPath = path.join(__dirname, '../assets', randomThumbFile);
+            
+            if (fs.existsSync(fallbackPath)) {
+                return fs.readFileSync(fallbackPath);
+            }
+            
             return Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
         }
     } catch (error) {
@@ -366,9 +381,6 @@ async function loadThumbnail(thumbnailPath) {
         return Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
     }
 }
-
-// FIXED: Removed duplicate createFakeContact function and imported it instead
-const { createFakeContact } = require('../lib/fakeContact');
 
 async function sendMenuWithStyle(sock, chatId, message, menulist, menustyle, thumbnailBuffer, pushname) {
     const fkontak = createFakeContact(message);
@@ -493,15 +505,28 @@ async function helpCommand(sock, chatId, message) {
 
     const menulist = generateMenu(pushname, currentMode, hostName, ping, uptimeFormatted);
 
-    const thumbnailFiles = [
-        'menu1.jpg',
-        'menu2.jpg', 
-        'menu3.jpg',
-        'menu4.jpg',
-        'menu5.jpg'
-    ];
-    const randomThumbFile = thumbnailFiles[Math.floor(Math.random() * thumbnailFiles.length)];
-    const thumbnailPath = path.join(__dirname, '../assets', randomThumbFile);
+    // Get menu image from menu settings
+    const menuImagePath = getMenuImage();
+    
+    let thumbnailPath;
+    
+    // Check if custom menu image is set and exists
+    if (menuImagePath && fs.existsSync(menuImagePath)) {
+        thumbnailPath = menuImagePath;
+        console.log('Using CUSTOM menu image:', thumbnailPath);
+    } else {
+        // Use random thumbnails from assets (your existing style)
+        const thumbnailFiles = [
+            'menu1.jpg',
+            'menu2.jpg', 
+            'menu3.jpg',
+            'menu4.jpg',
+            'menu5.jpg'
+        ];
+        const randomThumbFile = thumbnailFiles[Math.floor(Math.random() * thumbnailFiles.length)];
+        thumbnailPath = path.join(__dirname, '../assets', randomThumbFile);
+        console.log('Using RANDOM thumbnail:', randomThumbFile);
+    }
 
     await sock.sendMessage(chatId, {
         react: { text: '📔', key: message.key }

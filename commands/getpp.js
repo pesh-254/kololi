@@ -1,31 +1,16 @@
-const axios = require('axios');
-
-function createFakeContact(message) {
-    return {
-        key: {
-            participants: "0@s.whatsapp.net",
-            remoteJid: "0@s.whatsapp.net",
-            fromMe: false
-        },
-        message: {
-            contactMessage: {
-                displayName: "DAVE-X",
-                vcard: `BEGIN:VCARD\nVERSION:3.0\nN:Sy;Bot;;;\nFN:DAVE-X\nitem1.TEL;waid=${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}:${message.key.participant?.split('@')[0] || message.key.remoteJid.split('@')[0]}\nitem1.X-ABLabel:Phone\nEND:VCARD`
-            }
-        },
-        participant: "0@s.whatsapp.net"
-    };
-}
+const { createFakeContact, getBotName } = require('../lib/fakeContact');
 
 async function getppCommand(sock, chatId, message) {
     try {
-        const fake = createFakeContact(message);
+        const senderId = message.key.participant || message.key.remoteJid;
+        const fake = createFakeContact(senderId);
+        const botName = getBotName();
         
-        // Check if user is owner
+        // Check if user is owner (keep original logic)
         const isOwner = message.key.fromMe;
         if (!isOwner) {
             await sock.sendMessage(chatId, { 
-                text: 'Command only for the owner.'
+                text: `*${botName}*\nCommand only for the owner.`
             }, { quoted: fake });
             return;
         }
@@ -43,12 +28,8 @@ async function getppCommand(sock, chatId, message) {
         
         if (!userToAnalyze) {
             await sock.sendMessage(chatId, { 
-                text: 'Please mention someone or reply to their message to get their profile picture'
+                text: `*${botName}*\nPlease mention someone or reply to their message to get their profile picture`
             }, { quoted: fake });
-
-            await sock.sendMessage(chatId, {
-                react: { text: '🗑️', key: message.key }
-            });
             return;
         }
 
@@ -61,28 +42,27 @@ async function getppCommand(sock, chatId, message) {
                 profilePic = 'https://files.catbox.moe/lvcwnf.jpg'; // Default image
             }
 
-            // Send the profile picture to the chat
+            // Send the profile picture
             await sock.sendMessage(chatId, {
                 image: { url: profilePic },
-                caption: `hey Sucess in getting profile of: @${userToAnalyze.split('@')[0]} .`,
+                caption: `*${botName}*\n✅ Profile picture of: @${userToAnalyze.split('@')[0]}`,
                 mentions: [userToAnalyze]
             }, { quoted: fake });
 
-            await sock.sendMessage(chatId, {
-                react: { text: '☑️', key: message.key }
-            });
-
         } catch (error) {
-            console.error('Error in getpp command:', error);
+            console.error('Error in getpp command:', error.message);
             await sock.sendMessage(chatId, {
-                text: 'Failed to retrieve profile picture. The user might not have one set.'
+                text: `*${botName}*\n❌ Failed to retrieve profile picture.`
             }, { quoted: fake });
         }
     } catch (error) {
-        console.error('Unexpected error in getppCommand:', error);
-        const fake = createFakeContact(message);
+        console.error('Unexpected error in getppCommand:', error.message);
+        const senderId = message.key.participant || message.key.remoteJid;
+        const fake = createFakeContact(senderId);
+        const botName = getBotName();
+        
         await sock.sendMessage(chatId, {
-            text: 'An unexpected error occurred.'
+            text: `*${botName}*\n❌ An unexpected error occurred.`
         }, { quoted: fake });
     }
 }

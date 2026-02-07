@@ -1,26 +1,21 @@
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { getRandom } = require('../lib/myfunc');
+const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const { createFakeContact, getBotName } = require('../lib/fakeContact');
 
-async function audioEffectsCommand(sock, chatId, message) {
+async function audioEffectsCommand(sock, chatId, message, effect) {
     try {
         const senderId = message.key.participant || message.key.remoteJid;
         const fake = createFakeContact(senderId);
         const botName = getBotName();
-        
-        // Get command text
-        const text = message.message?.conversation || 
-                     message.message?.extendedTextMessage?.text || '';
-        
-        // Extract command and args
-        const args = text.trim().split(' ');
-        const cmd = args[0]?.toLowerCase();
-        
+
+        // Get command from parameter (passed from main.js)
+        const cmd = effect;
+
         // Valid audio effect commands
         const validCommands = ['bass', 'blown', 'deep', 'earrape', 'fast', 'fat', 'nightcore', 'reverse', 'robot', 'slow', 'smooth', 'tupai'];
-        
+
         // If no command or invalid, show help
         if (!cmd || !validCommands.includes(cmd)) {
             const helpText = `*${botName} AUDIO EFFECTS*\n\n` +
@@ -42,7 +37,7 @@ async function audioEffectsCommand(sock, chatId, message) {
                            `.bass\n` +
                            `.reverse\n` +
                            `.nightcore etc.`;
-            
+
             await sock.sendMessage(chatId, { text: helpText }, { quoted: fake });
             return;
         }
@@ -56,6 +51,7 @@ async function audioEffectsCommand(sock, chatId, message) {
             return;
         }
 
+        // Rest of your function remains the same...
         // Send processing message
         await sock.sendMessage(chatId, { 
             text: `*${botName}*\n🎵 Applying ${cmd} effect... Please wait!` 
@@ -105,9 +101,8 @@ async function audioEffectsCommand(sock, chatId, message) {
         }
 
         // Download the quoted audio
-        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
         const stream = await downloadContentFromMessage(quotedMessage.audioMessage, 'audio');
-        
+
         let buffer = Buffer.from([]);
         for await (const chunk of stream) {
             buffer = Buffer.concat([buffer, chunk]);
@@ -116,10 +111,10 @@ async function audioEffectsCommand(sock, chatId, message) {
         // Create temp files
         const tempDir = path.join(process.cwd(), 'temp');
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-        
+
         const inputFile = path.join(tempDir, `input_${Date.now()}.mp3`);
         const outputFile = path.join(tempDir, `output_${Date.now()}.mp3`);
-        
+
         fs.writeFileSync(inputFile, buffer);
 
         // Apply audio effect with FFmpeg
@@ -163,7 +158,7 @@ async function audioEffectsCommand(sock, chatId, message) {
         const senderId = message.key.participant || message.key.remoteJid;
         const fake = createFakeContact(senderId);
         const botName = getBotName();
-        
+
         await sock.sendMessage(chatId, { 
             text: `*${botName}*\n❌ Failed to process audio: ${error.message}` 
         }, { quoted: fake });

@@ -1,4 +1,4 @@
-const { getGroupConfig, setGroupConfig, parseToggleCommand, parseActionCommand } = require('../Database/settingsStore');
+const { getGroupConfig, setGroupConfig } = require('../Database/settingsStore');
 const db = require('../Database/database');
 const { createFakeContact, getBotName } = require('../lib/fakeContact');
 
@@ -11,6 +11,34 @@ const DEFAULT_BAD_WORDS = [
     'motherfucker', 'cock', 'cunt', 'pussy', 'twat', 'wanker',
     'chut', 'harami', 'kameena', 'haramzada'
 ];
+
+// FIXED: Local toggle parser to avoid the buggy settingsStore one
+function parseToggleLocal(input) {
+    const clean = input.toLowerCase().trim();
+    
+    // ON variants
+    if (['on', 'enable', 'yes', 'true', '1', 'start', 'activate'].includes(clean)) {
+        return 'on';
+    }
+    
+    // OFF variants  
+    if (['off', 'disable', 'no', 'false', '0', 'stop', 'deactivate'].includes(clean)) {
+        return 'off';
+    }
+    
+    return null;
+}
+
+// FIXED: Local action parser
+function parseActionLocal(input) {
+    const clean = input.toLowerCase().trim();
+    
+    if (['delete', 'del', 'remove'].includes(clean)) return 'delete';
+    if (['kick', 'remove', 'boot'].includes(clean)) return 'kick';
+    if (['warn', 'warning'].includes(clean)) return 'warn';
+    
+    return null;
+}
 
 async function handleAntiBadwordCommand(sock, chatId, message, match) {
     const senderId = message.key.participant || message.key.remoteJid;
@@ -36,7 +64,7 @@ async function handleAntiBadwordCommand(sock, chatId, message, match) {
     if (!match) {
         const words = currentConfig.words?.length > 0 ? currentConfig.words : DEFAULT_BAD_WORDS;
         const helpText = `*${botName} ANTIBADWORD*\n\n` +
-                        `Status: ${currentConfig.enabled ? 'ON' : 'OFF'}\n` +
+                        `Status: ${currentConfig.enabled ? '✅ ON' : '❌ OFF'}\n` +
                         `Action: ${currentConfig.action || 'delete'}\n` +
                         `Max Warnings: ${currentConfig.maxWarnings || 3}\n` +
                         `Custom Words: ${currentConfig.words?.length || 0}\n\n` +
@@ -62,7 +90,7 @@ async function handleAntiBadwordCommand(sock, chatId, message, match) {
 
     if (sub === 'status') {
         responseText = `*${botName} ANTIBADWORD STATUS*\n\n` +
-                      `Status: ${currentConfig.enabled ? 'ACTIVE' : 'INACTIVE'}\n` +
+                      `Status: ${currentConfig.enabled ? '✅ ACTIVE' : '❌ INACTIVE'}\n` +
                       `Action: ${currentConfig.action || 'delete'}\n` +
                       `Max Warnings: ${currentConfig.maxWarnings || 3}\n` +
                       `Custom Words: ${currentConfig.words?.length || 0}`;
@@ -93,9 +121,9 @@ async function handleAntiBadwordCommand(sock, chatId, message, match) {
             }
             newConfig.words = currentWords;
             setGroupConfig(chatId, 'antibadword', newConfig);
-            responseText = `*${botName}*\nAdded ${addedWords.length} words: ${addedWords.join(', ')}`;
+            responseText = `*${botName}*\n✅ Added ${addedWords.length} words: ${addedWords.join(', ')}`;
         } else {
-            responseText = `*${botName}*\nProvide words to add!`;
+            responseText = `*${botName}*\n❌ Provide words to add!`;
         }
         await sock.sendMessage(chatId, { text: responseText }, { quoted: fake });
         return;
@@ -109,9 +137,9 @@ async function handleAntiBadwordCommand(sock, chatId, message, match) {
             currentWords.splice(index, 1);
             newConfig.words = currentWords;
             setGroupConfig(chatId, 'antibadword', newConfig);
-            responseText = `*${botName}*\nRemoved: ${wordToRemove}`;
+            responseText = `*${botName}*\n✅ Removed: ${wordToRemove}`;
         } else {
-            responseText = `*${botName}*\nWord not found in list!`;
+            responseText = `*${botName}*\n❌ Word not found in list!`;
         }
         await sock.sendMessage(chatId, { text: responseText }, { quoted: fake });
         return;
@@ -122,9 +150,9 @@ async function handleAntiBadwordCommand(sock, chatId, message, match) {
         if (num > 0 && num <= 10) {
             newConfig.maxWarnings = num;
             setGroupConfig(chatId, 'antibadword', newConfig);
-            responseText = `*${botName}*\nMax warnings set to: ${num}`;
+            responseText = `*${botName}*\n✅ Max warnings set to: ${num}`;
         } else {
-            responseText = `*${botName}*\nInvalid number! Use 1-10`;
+            responseText = `*${botName}*\n❌ Invalid number! Use 1-10`;
         }
         await sock.sendMessage(chatId, { text: responseText }, { quoted: fake });
         return;
@@ -133,43 +161,45 @@ async function handleAntiBadwordCommand(sock, chatId, message, match) {
     if (sub === 'reset') {
         newConfig.words = [...DEFAULT_BAD_WORDS];
         setGroupConfig(chatId, 'antibadword', newConfig);
-        responseText = `*${botName}*\nReset to default ${DEFAULT_BAD_WORDS.length} words`;
+        responseText = `*${botName}*\n✅ Reset to default ${DEFAULT_BAD_WORDS.length} words`;
         await sock.sendMessage(chatId, { text: responseText }, { quoted: fake });
         return;
     }
 
-    const toggle = parseToggleCommand(sub);
+    // FIXED: Use local parser instead of buggy settingsStore one
+    const toggle = parseToggleLocal(sub);
     if (toggle === 'on') {
         newConfig.enabled = true;
         // Ensure action is set if not present
         if (!newConfig.action) newConfig.action = 'delete';
         setGroupConfig(chatId, 'antibadword', newConfig);
-        responseText = `*${botName}*\nAntiBadword ENABLED\nAction: ${newConfig.action || 'delete'}`;
+        responseText = `*${botName}*\n✅ AntiBadword ENABLED\nAction: ${newConfig.action || 'delete'}`;
     } else if (toggle === 'off') {
         newConfig.enabled = false;
         setGroupConfig(chatId, 'antibadword', newConfig);
-        responseText = `*${botName}*\nAntiBadword DISABLED`;
+        responseText = `*${botName}*\n❌ AntiBadword DISABLED`;
     } else {
-        const action = parseActionCommand(sub);
+        // FIXED: Use local parser instead of buggy settingsStore one
+        const action = parseActionLocal(sub);
         if (action === 'delete') {
             newConfig.action = 'delete';
             newConfig.enabled = true;
             setGroupConfig(chatId, 'antibadword', newConfig);
-            responseText = `*${botName}*\nAction: DELETE\nBad word messages will be deleted.`;
+            responseText = `*${botName}*\n✅ Action: DELETE\nBad word messages will be deleted.`;
         } else if (action === 'kick') {
             newConfig.action = 'kick';
             newConfig.enabled = true;
             setGroupConfig(chatId, 'antibadword', newConfig);
-            responseText = `*${botName}*\nAction: KICK\nUsers will be removed for bad words.`;
+            responseText = `*${botName}*\n✅ Action: KICK\nUsers will be removed for bad words.`;
         } else if (action === 'warn') {
             newConfig.action = 'warn';
             newConfig.enabled = true;
             // Ensure maxWarnings is set
             if (!newConfig.maxWarnings) newConfig.maxWarnings = 3;
             setGroupConfig(chatId, 'antibadword', newConfig);
-            responseText = `*${botName}*\nAction: WARN\nUsers get ${newConfig.maxWarnings} warnings before kick.`;
+            responseText = `*${botName}*\n✅ Action: WARN\nUsers get ${newConfig.maxWarnings} warnings before kick.`;
         } else {
-            responseText = `*${botName}*\nInvalid command!\nUse: on, off, delete, kick, warn, add, remove, list`;
+            responseText = `*${botName}*\n❌ Invalid command!\nUse: on, off, delete, kick, warn, add, remove, list`;
         }
     }
 

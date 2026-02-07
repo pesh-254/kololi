@@ -1,7 +1,7 @@
 const qrcode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
-const PDFDocument = require('pdfkit');
+//const PDFDocument = require('pdfkit');
 const { createFakeContact, getBotName } = require('../lib/fakeContact');
 
 async function toqrCommand(sock, chatId, message) {

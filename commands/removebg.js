@@ -1,113 +1,85 @@
-const axios = require('axios');
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-const { uploadImage } = require('../lib/uploadImage');
+const { createFakeContact, getBotName } = require('../lib/fakeContact');
 
-async function getQuotedOrOwnImageUrl(sock, message) {
-    // 1) Quoted image (highest priority)
-    const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-    if (quoted?.imageMessage) {
-        const stream = await downloadContentFromMessage(quoted.imageMessage, 'image');
-        const chunks = [];
-        for await (const chunk of stream) chunks.push(chunk);
-        const buffer = Buffer.concat(chunks);
-        return await uploadImage(buffer);
+async function removebgCommand(sock, chatId, message) {
+    try {
+        const senderId = message.key.participant || message.key.remoteJid;
+        const fake = createFakeContact(senderId);
+        const botName = getBotName();
+        
+        // Check if replying to image
+        const quotedMessage = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+        if (!quotedMessage || !quotedMessage.imageMessage) {
+            await sock.sendMessage(chatId, {
+                text: `*${botName} REMOVE BACKGROUND*\n\n` +
+                      `Remove background from images\n\n` +
+                      `*Usage:* Reply to an image with:\n` +
+                      `.removebg\n` +
+                      `.nobg\n\n` +
+                      `*Note:* Requires remove.bg API key`
+            }, { quoted: fake });
+            return;
+        }
+
+        await sock.sendMessage(chatId, {
+            text: `*${botName}*\n🎨 Removing background...`
+        }, { quoted: fake });
+
+        // Download the image
+        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const stream = await downloadContentFromMessage(quotedMessage.imageMessage, 'image');
+        
+        let buffer = Buffer.from([]);
+        for await (const chunk of stream) {
+            buffer = Buffer.concat([buffer, chunk]);
+        }
+
+        const base64 = buffer.toString('base64');
+        const apiKey = '1akxyLM8h64QuKxbjTqXoNaU'; // Your remove.bg API key
+        
+        const response = await fetch('https://api.remove.bg/v1.0/removebg', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Api-Key': apiKey
+            },
+            body: JSON.stringify({
+                image_file_b64: base64,
+                size: 'auto',
+                format: 'png'
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+
+        const result = await response.arrayBuffer();
+        const resultBuffer = Buffer.from(result);
+
+        await sock.sendMessage(chatId, {
+            image: resultBuffer,
+            caption: `*${botName}*\n✨ Background removed successfully!`
+        }, { quoted: fake });
+
+    } catch (error) {
+        console.error('RemoveBG error:', error.message);
+        const senderId = message.key.participant || message.key.remoteJid;
+        const fake = createFakeContact(senderId);
+        const botName = getBotName();
+        
+        let errorMsg = `❌ Failed to remove background: ${error.message}`;
+        if (error.message.includes('API error: 402') || error.message.includes('402')) {
+            errorMsg = `❌ API limit reached or invalid API key.\nGet free API key from: remove.bg`;
+        } else if (error.message.includes('API error: 401') || error.message.includes('401')) {
+            errorMsg = `❌ Invalid API key. Please update the API key in removebg.js`;
+        }
+        
+        await sock.sendMessage(chatId, {
+            text: `*${botName}*\n${errorMsg}`
+        }, { quoted: fake });
     }
-
-    // 2) Image in the current message
-    if (message.message?.imageMessage) {
-        const stream = await downloadContentFromMessage(message.message.imageMessage, 'image');
-        const chunks = [];
-        for await (const chunk of stream) chunks.push(chunk);
-        const buffer = Buffer.concat(chunks);
-        return await uploadImage(buffer);
-    }
-
-    return null;
 }
 
 module.exports = {
-    name: 'removebg',
-    alias: ['rmbg', 'nobg'],
-    category: 'general',
-    desc: 'Remove background from images',
-    async exec(sock, message, args) {
-        try {
-            const chatId = message.key.remoteJid;
-            let imageUrl = null;
-            
-            // Check if args contain a URL
-            if (args.length > 0) {
-                const url = args.join(' ');
-                if (isValidUrl(url)) {
-                    imageUrl = url;
-                } else {
-                    return sock.sendMessage(chatId, { 
-                        text: '❌ Invalid URL provided.\n\nUsage: `.removebg https://example.com/image.jpg`' 
-                    }, { quoted: message });
-                }
-            } else {
-                // Try to get image from message or quoted message
-                imageUrl = await getQuotedOrOwnImageUrl(sock, message);
-                
-                if (!imageUrl) {
-                    return sock.sendMessage(chatId, { 
-                        text: '📸 *Remove Background Command*\n\nUsage:\n• `.removebg <image_url>`\n• Reply to an image with `.removebg`\n• Send image with `.removebg`\n\nExample: `.removebg https://example.com/image.jpg`' 
-                    }, { quoted: message });
-                }
-            }
-
-        
-            // Call the remove background API
-            const apiUrl = `https://api.siputzx.my.id/api/iloveimg/removebg?image=${encodeURIComponent(imageUrl)}`;
-            
-            const response = await axios.get(apiUrl, {
-                responseType: 'arraybuffer',
-                timeout: 30000, // 30 second timeout
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                }
-            });
-
-            if (response.status === 200 && response.data) {
-                // Send the processed image
-                await sock.sendMessage(chatId, {
-                    image: response.data,
-                    caption: '✨ *Background removed successfully!*\n\n𝗣𝗥𝗢𝗖𝗘𝗦𝗦𝗘𝗗 𝗕𝗬 𝗞𝗡𝗜𝗚𝗛𝗧-𝗕𝗢𝗧'
-                }, { quoted: message });
-            } else {
-                throw new Error('Failed to process image');
-            }
-
-        } catch (error) {
-            console.error('RemoveBG Error:', error.message);
-            
-            let errorMessage = '❌ Failed to remove background.';
-            
-            if (error.response?.status === 429) {
-                errorMessage = '⏰ Rate limit exceeded. Please try again later.';
-            } else if (error.response?.status === 400) {
-                errorMessage = '❌ Invalid image URL or format.';
-            } else if (error.response?.status === 500) {
-                errorMessage = '🔧 Server error. Please try again later.';
-            } else if (error.code === 'ECONNABORTED') {
-                errorMessage = '⏰ Request timeout. Please try again.';
-            } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
-                errorMessage = '🌐 Network error. Please check your connection.';
-            }
-            
-            await sock.sendMessage(chatId, { 
-                text: errorMessage 
-            }, { quoted: message });
-        }
-    }
+    removebgCommand
 };
-
-// Helper function to validate URL
-function isValidUrl(string) {
-    try {
-        new URL(string);
-        return true;
-    } catch (_) {
-        return false;
-    }
-}

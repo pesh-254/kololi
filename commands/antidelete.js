@@ -1,5 +1,5 @@
 /*
- * Protected by ROMEK JA OBFUSCATOR
+ * Protected by Dave Tech OBFUSCATOR
  * Protection Level: Standard
  * Generated: 2026-02-10T23:54:43.019Z
  * Warning: Unauthorized reverse engineering is prohibited
